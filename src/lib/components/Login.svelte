@@ -102,12 +102,14 @@
 
       <button
         class="btn btn-ghost btn-sm"
-        on:click={() => {
+        onclick={() => {
           isRegister = !isRegister;
           error = "";
         }}
       >
-        {isRegister ? "Already have an account? Sign in" : "Need an account? Register"}
+        {isRegister
+          ? "Already have an account? Sign in"
+          : "Need an account? Register"}
       </button>
     </div>
   </div>
