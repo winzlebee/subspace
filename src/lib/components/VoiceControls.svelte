@@ -33,7 +33,7 @@
 </script>
 
 <div
-    class="flex items-center gap-2 px-4 py-2 bg-base-300 border-t border-base-content/10"
+    class="flex items-center gap-2 px-4 py-2 bg-base-300 border-t border-base-content/10 shrink-0"
 >
     <div class="flex items-center gap-2 flex-1 min-w-0">
         <div class="w-2 h-2 rounded-full bg-success animate-pulse"></div>

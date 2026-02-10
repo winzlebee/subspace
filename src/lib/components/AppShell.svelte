@@ -84,7 +84,7 @@
   {/if}
 
   <!-- Message area -->
-  <div class="flex-1 flex flex-col min-w-0">
+  <div class="flex-1 flex flex-col min-w-0 overflow-hidden">
     {#if $currentChannel && $currentChannel.type === "text"}
       <MessageArea />
     {:else}

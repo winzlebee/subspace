@@ -120,10 +120,10 @@
     });
 </script>
 
-<div class="flex flex-col flex-1 min-w-0 h-full relative">
+<div class="flex flex-col flex-1 min-w-0 min-h-0 h-full relative">
     <!-- Channel header -->
     <div
-        class="h-12 flex items-center px-4 gap-2 shadow-sm bg-base-100 border-b border-base-300 shrink-0 z-10"
+        class="h-12 flex items-center px-4 gap-2 shadow-sm bg-base-100 border-b border-base-300 shrink-0"
     >
         <svg
             xmlns="http://www.w3.org/2000/svg"
@@ -409,6 +409,7 @@
                 <button
                     class="btn btn-ghost btn-sm mb-1 text-primary hover:bg-primary/20 transition-all"
                     onclick={handleSend}
+                    aria-label="Send message"
                 >
                     <svg
                         xmlns="http://www.w3.org/2000/svg"
