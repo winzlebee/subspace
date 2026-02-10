@@ -2,6 +2,7 @@
     import { showSettings, currentUser, theme, logout } from "$lib/stores";
     import { updateMe, uploadFile } from "$lib/api";
     import CloseButton from "./CloseButton.svelte";
+    import { THEMES } from "$lib/config";
 
     let username = $state($currentUser?.username ?? "");
     let saving = $state(false);
@@ -38,8 +39,7 @@
     }
 
     function toggleTheme() {
-        const next =
-            $theme === "subspace-dark" ? "subspace-light" : "subspace-dark";
+        const next = $theme === THEMES.DARK ? THEMES.LIGHT : THEMES.DARK;
         theme.set(next);
     }
 </script>
@@ -154,7 +154,7 @@
                 <label class="swap swap-rotate">
                     <input
                         type="checkbox"
-                        checked={$theme === "subspace-light"}
+                        checked={$theme === THEMES.LIGHT}
                         onchange={toggleTheme}
                         aria-label="Toggle theme"
                     />

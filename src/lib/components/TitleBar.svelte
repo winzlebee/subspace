@@ -1,5 +1,6 @@
 <script lang="ts">
     import { getCurrentWindow } from "@tauri-apps/api/window";
+    import { APP_NAME } from "$lib/config";
 
     const appWindow = getCurrentWindow();
 
@@ -29,7 +30,7 @@
         <span
             class="text-xs font-semibold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent"
         >
-            Subspace
+            {APP_NAME}
         </span>
     </div>
 

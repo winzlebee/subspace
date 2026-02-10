@@ -1,5 +1,6 @@
 import { writable, derived, get } from "svelte/store";
 import type { User, UserPublic, Server, Channel, Message, ServerMember, VoiceState } from "./types";
+import { DEFAULT_THEME } from "./config";
 
 // ── Auth ─────────────────────────────────────────────────────────────
 export const authToken = writable<string | null>(localStorage.getItem("token"));
@@ -46,7 +47,7 @@ export const isDeafened = writable(false);
 // ── UI State ─────────────────────────────────────────────────────────
 export const showSettings = writable(false);
 export const showCreateServer = writable(false);
-export const theme = writable<string>(localStorage.getItem("theme") ?? "subspace-dark");
+export const theme = writable<string>(localStorage.getItem("theme") ?? DEFAULT_THEME);
 
 theme.subscribe((t) => {
     localStorage.setItem("theme", t);

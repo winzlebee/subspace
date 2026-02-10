@@ -2,11 +2,13 @@
   import "../app.css";
   import { onMount } from "svelte";
   import { theme } from "$lib/stores";
+  import { APP_NAME } from "$lib/config";
   import TitleBar from "$lib/components/TitleBar.svelte";
 
   let { children } = $props();
 
   onMount(() => {
+    document.title = APP_NAME;
     document.documentElement.setAttribute("data-theme", $theme);
   });
 </script>

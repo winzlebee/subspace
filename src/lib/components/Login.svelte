@@ -1,6 +1,7 @@
 <script lang="ts">
   import { login, register } from "$lib/api";
   import { authToken, currentUser } from "$lib/stores";
+  import { APP_NAME } from "$lib/config";
 
   let username = $state("");
   let password = $state("");
@@ -32,7 +33,7 @@
         <h1
           class="text-3xl font-bold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent"
         >
-          Subspace
+          {APP_NAME}
         </h1>
         <p class="text-base-content/60 text-sm mt-1">
           {isRegister ? "Create your account" : "Welcome back"}
