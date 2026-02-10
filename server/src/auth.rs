@@ -65,7 +65,7 @@ pub async fn register(
     let id = Uuid::new_v4();
     let password_hash = hash_password(&body.password);
 
-    if let Err(e) = state.db.create_user(&id, &body.username, &password_hash) {
+    if let Err(e) = state.db.create_user(&id, &body.username, &password_hash, body.avatar_url.as_deref()) {
         tracing::error!("Failed to create user: {e}");
         return (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({"error": "Internal error"}))).into_response();
     }
@@ -74,7 +74,7 @@ pub async fn register(
     let user = User {
         id,
         username: body.username,
-        avatar_url: None,
+        avatar_url: body.avatar_url,
         theme: "dark".to_string(),
         language: "en".to_string(),
         notifications_enabled: true,
