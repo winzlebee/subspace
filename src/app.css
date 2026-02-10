@@ -1,0 +1,78 @@
+@import "tailwindcss";
+@plugin "daisyui";
+
+/* ── DaisyUI theme config ─────────────────────────────────────────── */
+@plugin "daisyui/theme" {
+  name: "subspace-dark";
+  default: true;
+  color-scheme: dark;
+  --color-base-100: oklch(0.22 0.015 260);
+  --color-base-200: oklch(0.18 0.015 260);
+  --color-base-300: oklch(0.15 0.015 260);
+  --color-base-content: oklch(0.93 0.01 260);
+  --color-primary: oklch(0.65 0.2 265);
+  --color-primary-content: oklch(0.98 0.01 265);
+  --color-secondary: oklch(0.6 0.15 310);
+  --color-secondary-content: oklch(0.98 0.01 310);
+  --color-accent: oklch(0.7 0.18 160);
+  --color-accent-content: oklch(0.15 0.05 160);
+  --color-neutral: oklch(0.25 0.01 260);
+  --color-neutral-content: oklch(0.85 0.01 260);
+  --color-info: oklch(0.7 0.15 230);
+  --color-success: oklch(0.7 0.18 145);
+  --color-warning: oklch(0.75 0.17 75);
+  --color-error: oklch(0.65 0.2 25);
+  --rounded-btn: 0.5rem;
+  --rounded-box: 0.75rem;
+}
+
+@plugin "daisyui/theme" {
+  name: "subspace-light";
+  color-scheme: light;
+  --color-base-100: oklch(0.97 0.005 260);
+  --color-base-200: oklch(0.93 0.008 260);
+  --color-base-300: oklch(0.88 0.01 260);
+  --color-base-content: oklch(0.25 0.02 260);
+  --color-primary: oklch(0.55 0.22 265);
+  --color-primary-content: oklch(0.98 0.01 265);
+  --color-secondary: oklch(0.55 0.18 310);
+  --color-secondary-content: oklch(0.98 0.01 310);
+  --color-accent: oklch(0.6 0.2 160);
+  --color-accent-content: oklch(0.98 0.01 160);
+  --color-neutral: oklch(0.35 0.02 260);
+  --color-neutral-content: oklch(0.95 0.005 260);
+  --color-info: oklch(0.6 0.18 230);
+  --color-success: oklch(0.6 0.2 145);
+  --color-warning: oklch(0.65 0.2 75);
+  --color-error: oklch(0.55 0.22 25);
+  --rounded-btn: 0.5rem;
+  --rounded-box: 0.75rem;
+}
+
+/* ── Global styles ────────────────────────────────────────────────── */
+html, body {
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+  font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: oklch(0.4 0.01 260);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: oklch(0.5 0.01 260);
+}
+
+/* Smooth transitions for theme switching */
+* {
+  transition: background-color 0.2s ease, color 0.15s ease, border-color 0.2s ease;
+}
