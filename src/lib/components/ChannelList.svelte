@@ -96,7 +96,7 @@
         >
           Text Channels
         </h3>
-        <ul class="menu menu-sm p-0 gap-0.5">
+        <ul class="menu menu-sm">
           {#each $textChannels as channel (channel.id)}
             <li>
               <button
@@ -136,7 +136,7 @@
         >
           Voice Channels
         </h3>
-        <ul class="menu menu-sm p-0 gap-0.5">
+        <ul class="menu menu-sm">
           {#each $voiceChannels as channel (channel.id)}
             {@const users = $voiceStates[channel.id] || []}
             <li>
@@ -165,39 +165,33 @@
               </button>
               <!-- Voice channel users -->
               {#if users.length > 0}
-                <ul class="ml-6 mt-0.5 space-y-0.5">
+                <ul>
                   {#each users as vs (vs.user_id)}
-                    <li
-                      class="flex items-center gap-2 text-xs text-base-content/50 py-0.5 px-1"
-                    >
-                      <div
-                        class="w-5 h-5 rounded-full bg-base-300 flex items-center justify-center text-[10px] font-bold"
-                      >
-                        {(vs.username ?? "?")[0].toUpperCase()}
-                      </div>
-                      <span class="truncate">{vs.username ?? "Unknown"}</span>
-                      {#if vs.muted}
-                        <svg
-                          xmlns="http://www.w3.org/2000/svg"
-                          class="h-3 w-3 text-error"
-                          fill="none"
-                          viewBox="0 0 24 24"
-                          stroke="currentColor"
+                    <li>
+                      <a>
+                        <span
+                          class="size-6 rounded-full bg-base-300 flex items-center justify-center text-[10px] font-bold"
                         >
-                          <path
-                            stroke-linecap="round"
-                            stroke-linejoin="round"
-                            stroke-width="2"
-                            d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"
-                          />
-                          <path
-                            stroke-linecap="round"
-                            stroke-linejoin="round"
-                            stroke-width="2"
-                            d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2"
-                          />
-                        </svg>
-                      {/if}
+                          {(vs.username ?? "?")[0].toUpperCase()}
+                        </span>
+                        <span class="truncate">{vs.username ?? "Unknown"}</span>
+                        <span>
+                          {#if vs.muted}
+                            <svg
+                              xmlns="http://www.w3.org/2000/svg"
+                              class="h-4 w-4 text-error"
+                              viewBox="0 0 20 20"
+                              fill="currentColor"
+                            >
+                              <path
+                                fill-rule="evenodd"
+                                d="M9.383 3.076A1 1 0 0110 4v12a1 1 0 01-1.707.707L4.586 13H2a1 1 0 01-1-1V8a1 1 0 011-1h2.586l3.707-3.707a1 1 0 011.09-.217zM12.293 7.293a1 1 0 011.414 0L15 8.586l1.293-1.293a1 1 0 111.414 1.414L16.414 10l1.293 1.293a1 1 0 01-1.414 1.414L15 11.414l-1.293 1.293a1 1 0 01-1.414-1.414L13.586 10l-1.293-1.293a1 1 0 010-1.414z"
+                                clip-rule="evenodd"
+                              />
+                            </svg>
+                          {/if}
+                        </span>
+                      </a>
                     </li>
                   {/each}
                 </ul>
