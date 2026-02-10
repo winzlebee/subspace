@@ -25,7 +25,11 @@
         if (!content || !$currentChannel) return;
         messageInput = "";
         try {
-            await createMessage($currentChannel.id, content);
+            const newMsg = await createMessage($currentChannel.id, content);
+            messages.update((msgs) => {
+                if (msgs.some((m) => m.id === newMsg.id)) return msgs;
+                return [...msgs, newMsg];
+            });
         } catch (e) {
             console.error("Send error:", e);
         }

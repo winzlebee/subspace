@@ -1,5 +1,5 @@
 import { get } from "svelte/store";
-import { authToken, messages, voiceStates, voiceChannelId } from "./stores";
+import { authToken, currentChannelId, messages, voiceStates, voiceChannelId } from "./stores";
 import type { WsEnvelope, Message, VoiceState } from "./types";
 
 const WS_URL = "ws://localhost:3001/ws";
@@ -108,7 +108,13 @@ function handleMessage(env: WsEnvelope) {
 
         case "message_created": {
             const msg: Message = env.payload.message;
-            messages.update((msgs) => [...msgs, msg]);
+            const currentCh = get(currentChannelId);
+            if (msg.channel_id === currentCh) {
+                messages.update((msgs) => {
+                    if (msgs.some((m) => m.id === msg.id)) return msgs;
+                    return [...msgs, msg];
+                });
+            }
             break;
         }
 
