@@ -61,6 +61,13 @@ export async function createServer(name: string, icon_url?: string): Promise<Ser
     });
 }
 
+export async function updateServer(serverId: string, data: { name?: string; icon_url?: string }): Promise<Server> {
+    return request(`/servers/${serverId}`, {
+        method: "PATCH",
+        body: JSON.stringify(data),
+    });
+}
+
 export async function joinServer(serverId: string) {
     return request(`/servers/${serverId}/join`, { method: "POST" });
 }

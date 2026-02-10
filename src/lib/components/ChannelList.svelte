@@ -7,11 +7,15 @@
     voiceChannelId,
     voiceStates,
     currentUser,
+    currentServerId,
   } from "$lib/stores";
   import { wsJoinVoice, wsLeaveVoice } from "$lib/ws";
   import type { VoiceState } from "$lib/types";
+  import ServerSettingsModals from "./ServerSettingsModals.svelte";
 
   let { onSelectChannel }: { onSelectChannel: (id: string) => void } = $props();
+
+  let showServerSettings = $state(false);
 
   function joinVoiceChannel(channelId: string) {
     wsJoinVoice(channelId);
@@ -46,12 +50,42 @@
 <div class="flex flex-col w-60 bg-base-200 shrink-0 overflow-hidden">
   <!-- Server name header -->
   <div
-    class="h-12 flex items-center px-4 shadow-md bg-base-200 border-b border-base-300"
+    class="h-12 flex items-center justify-between px-4 shadow-md bg-base-200 border-b border-base-300 hover:bg-base-300 transition-colors cursor-pointer group"
+    onclick={() => (showServerSettings = true)}
+    onkeydown={(e) => {
+      if (e.key === "Enter" || e.key === " ") showServerSettings = true;
+    }}
+    role="button"
+    tabindex="0"
   >
-    <h2 class="font-semibold text-base-content truncate">
+    <h2 class="font-semibold text-base-content truncate flex-1">
       {$currentServer?.name ?? ""}
     </h2>
+    <button
+      class="btn btn-xs btn-ghost btn-square opacity-0 group-hover:opacity-100 transition-opacity"
+      aria-label="Server Settings"
+    >
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        class="h-4 w-4"
+        fill="none"
+        viewBox="0 0 24 24"
+        stroke="currentColor"
+      >
+        <path
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          stroke-width="2"
+          d="M19 9l-7 7-7-7"
+        />
+      </svg>
+    </button>
   </div>
+
+  <ServerSettingsModals
+    bind:show={showServerSettings}
+    onClose={() => (showServerSettings = false)}
+  />
 
   <div class="flex-1 overflow-y-auto p-2 space-y-4">
     <!-- Text Channels -->
@@ -70,7 +104,7 @@
                   {channel.id === $currentChannelId
                   ? 'bg-base-300 text-base-content'
                   : 'text-base-content/60 hover:text-base-content hover:bg-base-300/50'}"
-                on:click={() => onSelectChannel(channel.id)}
+                onclick={() => onSelectChannel(channel.id)}
               >
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
@@ -111,7 +145,7 @@
                   {channel.id === $voiceChannelId
                   ? 'bg-success/20 text-success'
                   : 'text-base-content/60 hover:text-base-content hover:bg-base-300/50'}"
-                on:click={() => joinVoiceChannel(channel.id)}
+                onclick={() => joinVoiceChannel(channel.id)}
               >
                 <svg
                   xmlns="http://www.w3.org/2000/svg"

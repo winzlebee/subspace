@@ -1,6 +1,7 @@
 <script lang="ts">
     import { showSettings, currentUser, theme, logout } from "$lib/stores";
     import { updateMe, uploadFile } from "$lib/api";
+    import CloseButton from "./CloseButton.svelte";
 
     let username = $state($currentUser?.username ?? "");
     let saving = $state(false);
@@ -44,33 +45,22 @@
 </script>
 
 <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
+<!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
 <div
-    class="fixed inset-0 bg-black/60 z-50 flex items-center justify-center"
-    on:click|self={() => showSettings.set(false)}
+    class="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4"
+    onclick={(e) => {
+        if (e.target === e.currentTarget) showSettings.set(false);
+    }}
+    role="dialog"
+    aria-modal="true"
+    aria-label="User Settings Modal"
+    tabindex="0"
 >
-    <div class="card bg-base-100 w-full max-w-lg shadow-2xl">
+    <div class="card bg-base-100 w-full max-w-lg shadow-2xl overflow-hidden">
         <div class="card-body">
             <div class="flex items-center justify-between mb-4">
                 <h2 class="card-title">User Settings</h2>
-                <button
-                    class="btn btn-ghost btn-sm btn-square"
-                    on:click={() => showSettings.set(false)}
-                >
-                    <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        class="h-5 w-5"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke="currentColor"
-                    >
-                        <path
-                            stroke-linecap="round"
-                            stroke-linejoin="round"
-                            stroke-width="2"
-                            d="M6 18L18 6M6 6l12 12"
-                        />
-                    </svg>
-                </button>
+                <CloseButton onClose={() => showSettings.set(false)} />
             </div>
 
             <!-- Avatar -->
@@ -122,7 +112,7 @@
                             type="file"
                             accept="image/*"
                             class="hidden"
-                            on:change={handleAvatarUpload}
+                            onchange={handleAvatarUpload}
                             disabled={avatarUploading}
                         />
                     </label>
@@ -150,7 +140,7 @@
 
             <button
                 class="btn btn-primary btn-sm mt-2"
-                on:click={handleSave}
+                onclick={handleSave}
                 disabled={saving}
             >
                 {saving ? "Saving..." : "Save Changes"}
@@ -165,7 +155,8 @@
                     <input
                         type="checkbox"
                         checked={$theme === "subspace-light"}
-                        on:change={toggleTheme}
+                        onchange={toggleTheme}
+                        aria-label="Toggle theme"
                     />
                     <svg
                         class="swap-on h-6 w-6"
@@ -203,7 +194,7 @@
             <!-- Logout -->
             <button
                 class="btn btn-error btn-outline btn-sm"
-                on:click={() => {
+                onclick={() => {
                     showSettings.set(false);
                     logout();
                 }}

@@ -24,5 +24,8 @@ export default defineConfig(async () => ({
     watch: {
       ignored: ["**/src-tauri/**"],
     },
+    fs: {
+      allow: ["./uploads"],
+    }
   },
 }));

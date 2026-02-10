@@ -32,6 +32,7 @@ export interface Channel {
     name: string;
     type: "text" | "voice";
     position: number;
+    topic?: string;
     created_at: string;
     updated_at: string;
 }

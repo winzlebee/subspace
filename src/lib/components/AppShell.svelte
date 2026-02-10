@@ -31,19 +31,21 @@
   import UserSettings from "./UserSettings.svelte";
   import CreateServer from "./CreateServer.svelte";
 
-  onMount(async () => {
-    try {
-      const user = await getMe();
-      currentUser.set(user);
-      const serverList = await listServers();
-      servers.set(serverList);
-      if (serverList.length > 0) {
-        await selectServer(serverList[0].id);
+  onMount(() => {
+    (async () => {
+      try {
+        const user = await getMe();
+        currentUser.set(user);
+        const serverList = await listServers();
+        servers.set(serverList);
+        if (serverList.length > 0) {
+          await selectServer(serverList[0].id);
+        }
+        connectWs();
+      } catch (e) {
+        console.error("Init error:", e);
       }
-      connectWs();
-    } catch (e) {
-      console.error("Init error:", e);
-    }
+    })();
 
     return () => disconnectWs();
   });

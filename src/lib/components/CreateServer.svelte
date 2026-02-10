@@ -43,10 +43,16 @@
 
 <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
 <div
-    class="fixed inset-0 bg-black/60 z-50 flex items-center justify-center"
-    on:click|self={() => showCreateServer.set(false)}
+    class="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4"
+    onclick={(e) => {
+        if (e.target === e.currentTarget) showCreateServer.set(false);
+    }}
+    role="dialog"
+    aria-modal="true"
+    aria-label="Create or Join Server Modal"
+    tabindex="0"
 >
-    <div class="card bg-base-100 w-full max-w-md shadow-2xl">
+    <div class="card bg-base-100 w-full max-w-md shadow-2xl overflow-hidden">
         <div class="card-body">
             <h2 class="card-title text-center justify-center mb-2">
                 {mode === "create" ? "Create a Server" : "Join a Server"}
@@ -56,14 +62,14 @@
             <div class="tabs tabs-boxed mb-4 justify-center">
                 <button
                     class="tab {mode === 'create' ? 'tab-active' : ''}"
-                    on:click={() => {
+                    onclick={() => {
                         mode = "create";
                         error = "";
                     }}>Create</button
                 >
                 <button
                     class="tab {mode === 'join' ? 'tab-active' : ''}"
-                    on:click={() => {
+                    onclick={() => {
                         mode = "join";
                         error = "";
                     }}>Join</button
@@ -75,7 +81,13 @@
             {/if}
 
             {#if mode === "create"}
-                <form on:submit|preventDefault={handleCreate} class="space-y-4">
+                <form
+                    onsubmit={(e) => {
+                        e.preventDefault();
+                        handleCreate();
+                    }}
+                    class="space-y-4"
+                >
                     <fieldset class="fieldset">
                         <label class="fieldset-label" for="server-name"
                             >Server Name</label
@@ -98,7 +110,13 @@
                     </button>
                 </form>
             {:else}
-                <form on:submit|preventDefault={handleJoin} class="space-y-4">
+                <form
+                    onsubmit={(e) => {
+                        e.preventDefault();
+                        handleJoin();
+                    }}
+                    class="space-y-4"
+                >
                     <fieldset class="fieldset">
                         <label class="fieldset-label" for="invite-code"
                             >Server ID</label
@@ -124,7 +142,7 @@
 
             <button
                 class="btn btn-ghost btn-sm mt-2"
-                on:click={() => showCreateServer.set(false)}>Cancel</button
+                onclick={() => showCreateServer.set(false)}>Cancel</button
             >
         </div>
     </div>
