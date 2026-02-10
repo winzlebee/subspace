@@ -23,6 +23,9 @@ src-tauri/gen/
 *.so
 *.wasm
 
+# ---------- Server ----------
+/uploads
+
 # ---------- SQLite ----------
 *.db
 *.db-shm

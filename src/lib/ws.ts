@@ -1,5 +1,5 @@
 import { get } from "svelte/store";
-import { authToken, currentChannelId, messages, voiceStates, voiceChannelId } from "./stores";
+import { authToken, currentChannelId, messages, voiceStates, voiceChannelId, addTypingUser } from "./stores";
 import type { WsEnvelope, Message, VoiceState } from "./types";
 
 const WS_URL = "ws://localhost:3001/ws";
@@ -153,9 +153,13 @@ function handleMessage(env: WsEnvelope) {
             break;
         }
 
-        case "user_typing":
-            // Could show typing indicator — skipping for now
+        case "user_typing": {
+            const { channel_id, user } = env.payload;
+            if (user) {
+                addTypingUser(channel_id, user);
+            }
             break;
+        }
 
         case "signal_sdp":
         case "signal_ice":

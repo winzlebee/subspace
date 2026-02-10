@@ -1,5 +1,5 @@
 import { writable, derived, get } from "svelte/store";
-import type { User, Server, Channel, Message, ServerMember, VoiceState } from "./types";
+import type { User, UserPublic, Server, Channel, Message, ServerMember, VoiceState } from "./types";
 
 // ── Auth ─────────────────────────────────────────────────────────────
 export const authToken = writable<string | null>(localStorage.getItem("token"));
@@ -52,6 +52,27 @@ theme.subscribe((t) => {
     localStorage.setItem("theme", t);
     document.documentElement.setAttribute("data-theme", t);
 });
+
+// ── Typing ───────────────────────────────────────────────────────────
+/** Maps channelId -> array of { user, expiresAt } */
+export const typingUsers = writable<Record<string, { user: UserPublic; expiresAt: number }[]>>({});
+
+export function addTypingUser(channelId: string, user: UserPublic) {
+    const expiresAt = Date.now() + 5000;
+    typingUsers.update((t) => {
+        const list = (t[channelId] || []).filter((u) => u.user.id !== user.id);
+        list.push({ user, expiresAt });
+        return { ...t, [channelId]: list };
+    });
+    // Schedule cleanup
+    setTimeout(() => {
+        typingUsers.update((t) => {
+            const now = Date.now();
+            const list = (t[channelId] || []).filter((u) => u.expiresAt > now);
+            return { ...t, [channelId]: list };
+        });
+    }, 5100);
+}
 
 // ── Logout ───────────────────────────────────────────────────────────
 export function logout() {
