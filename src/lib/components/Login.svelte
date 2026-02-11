@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { login, register } from "$lib/api";
+  import { login, register, clearServerUrl } from "$lib/api";
   import { authToken, currentUser } from "$lib/stores";
   import { APP_NAME } from "$lib/config";
 
