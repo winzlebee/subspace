@@ -24,6 +24,8 @@
     authToken,
   } from "$lib/stores";
 
+  import { APP_NAME } from "$lib/config";
+
   import ServerSidebar from "./ServerSidebar.svelte";
   import ChannelList from "./ChannelList.svelte";
   import MessageArea from "./MessageArea.svelte";
@@ -133,7 +135,9 @@
   <div class="flex h-full w-full items-center justify-center bg-base-100">
     <div class="text-center">
       <span class="loading loading-ring loading-lg text-primary"></span>
-      <p class="mt-4 text-base-content/60 text-sm">Connecting to Subspace...</p>
+      <p class="mt-4 text-base-content/60 text-sm">
+        Connecting to {APP_NAME}...
+      </p>
     </div>
   </div>
 {:else if initError}

@@ -1,5 +1,6 @@
 <script lang="ts">
     import { setServerUrl } from "$lib/api";
+    import { APP_NAME } from "$lib/config";
 
     let { onComplete }: { onComplete: () => void } = $props();
 
@@ -37,9 +38,7 @@
     <div class="card bg-base-200 w-full max-w-md shadow-2xl">
         <div class="card-body">
             <div class="text-center mb-4">
-                <h1 class="text-2xl font-bold text-primary mb-1">
-                    🚀 Subspace
-                </h1>
+                <h1 class="text-2xl font-bold text-primary mb-1">{APP_NAME}</h1>
                 <p class="text-sm text-base-content/60">
                     Enter your server address to get started
                 </p>
@@ -60,8 +59,7 @@
                     }}
                 />
                 <p class="text-xs text-base-content/40 mt-1.5">
-                    The address of your Subspace server (e.g.
-                    http://your-server-ip:3001)
+                    The address of your {APP_NAME} server (e.g. http://your-server-ip:3001)
                 </p>
             </fieldset>
 
