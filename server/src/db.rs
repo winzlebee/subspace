@@ -1,4 +1,4 @@
-use rusqlite::{params, Connection};
+use rusqlite::{Connection, params};
 use std::sync::Mutex;
 use uuid::Uuid;
 
@@ -29,17 +29,19 @@ impl Database {
         id: &Uuid,
         username: &str,
         password_hash: &str,
-        avatar_url: Option<&str>,
     ) -> Result<(), rusqlite::Error> {
         let conn = self.conn.lock().unwrap();
         conn.execute(
-            "INSERT INTO users (id, username, password_hash, avatar_url) VALUES (?1, ?2, ?3, ?4)",
-            params![id.to_string(), username, password_hash, avatar_url],
+            "INSERT INTO users (id, username, password_hash) VALUES (?1, ?2, ?3)",
+            params![id.to_string(), username, password_hash],
         )?;
         Ok(())
     }
 
-    pub fn get_user_by_username(&self, username: &str) -> Result<Option<UserRow>, rusqlite::Error> {
+    pub fn get_user_by_username(
+        &self,
+        username: &str,
+    ) -> Result<Option<UserRow>, rusqlite::Error> {
         let conn = self.conn.lock().unwrap();
         let mut stmt = conn.prepare(
             "SELECT id, username, password_hash, avatar_url, theme, language,
@@ -96,10 +98,7 @@ impl Database {
     ) -> Result<(), rusqlite::Error> {
         let conn = self.conn.lock().unwrap();
         if let Some(v) = username {
-            conn.execute(
-                "UPDATE users SET username = ?1 WHERE id = ?2",
-                params![v, id],
-            )?;
+            conn.execute("UPDATE users SET username = ?1 WHERE id = ?2", params![v, id])?;
         }
         if let Some(v) = avatar_url {
             conn.execute(
@@ -200,7 +199,10 @@ impl Database {
         Ok(())
     }
 
-    pub fn get_server_members(&self, server_id: &str) -> Result<Vec<MemberRow>, rusqlite::Error> {
+    pub fn get_server_members(
+        &self,
+        server_id: &str,
+    ) -> Result<Vec<MemberRow>, rusqlite::Error> {
         let conn = self.conn.lock().unwrap();
         let mut stmt = conn.prepare(
             "SELECT sm.user_id, sm.server_id, sm.role, sm.joined_at,
@@ -322,9 +324,7 @@ impl Database {
         before: Option<&str>,
     ) -> Result<Vec<MessageRow>, rusqlite::Error> {
         let conn = self.conn.lock().unwrap();
-        let (query, p): (String, Vec<Box<dyn rusqlite::types::ToSql>>) = if let Some(before_ts) =
-            before
-        {
+        let (query, p): (String, Vec<Box<dyn rusqlite::types::ToSql>>) = if let Some(before_ts) = before {
             (
                 "SELECT m.id, m.channel_id, m.author_id, m.content, m.pinned, m.created_at, m.edited_at,
                         u.username, u.avatar_url
@@ -370,7 +370,11 @@ impl Database {
         Ok(rows)
     }
 
-    pub fn edit_message(&self, message_id: &str, content: &str) -> Result<(), rusqlite::Error> {
+    pub fn edit_message(
+        &self,
+        message_id: &str,
+        content: &str,
+    ) -> Result<(), rusqlite::Error> {
         let conn = self.conn.lock().unwrap();
         conn.execute(
             "UPDATE messages SET content = ?1, edited_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') WHERE id = ?2",
@@ -470,14 +474,7 @@ impl Database {
         conn.execute(
             "INSERT INTO attachments (id, message_id, file_url, file_name, mime_type, size_bytes)
              VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
-            params![
-                id.to_string(),
-                message_id,
-                file_url,
-                file_name,
-                mime_type,
-                size_bytes
-            ],
+            params![id.to_string(), message_id, file_url, file_name, mime_type, size_bytes],
         )?;
         Ok(())
     }
@@ -618,10 +615,7 @@ impl Database {
 
     // ── Utility ──────────────────────────────────────────────────────────
 
-    pub fn get_channel_server_id(
-        &self,
-        channel_id: &str,
-    ) -> Result<Option<String>, rusqlite::Error> {
+    pub fn get_channel_server_id(&self, channel_id: &str) -> Result<Option<String>, rusqlite::Error> {
         let conn = self.conn.lock().unwrap();
         let result = conn.query_row(
             "SELECT server_id FROM channels WHERE id = ?1",

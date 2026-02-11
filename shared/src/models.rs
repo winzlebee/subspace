@@ -159,12 +159,10 @@ pub struct VoiceState {
 // Auth
 // ────────────────────────────────────────────────────────────────────────────
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AuthRequest {
     pub username: String,
     pub password: String,
-    // Optional because login doesn't need it, but register might
-    pub avatar_url: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

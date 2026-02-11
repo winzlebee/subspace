@@ -44,10 +44,10 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
 
 // ── Auth ─────────────────────────────────────────────────────────────
 
-export async function register(username: string, password: string, avatar_url?: string): Promise<AuthResponse> {
+export async function register(username: string, password: string): Promise<AuthResponse> {
     return request("/register", {
         method: "POST",
-        body: JSON.stringify({ username, password, avatar_url }),
+        body: JSON.stringify({ username, password }),
     });
 }
 
