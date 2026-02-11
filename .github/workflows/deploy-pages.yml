@@ -41,6 +41,7 @@ jobs:
           # If not set, it defaults to localhost (which won't work for public users but compiles fine)
           # Users should set this to their public server URL
           VITE_API_URL: ${{ vars.VITE_API_URL }}
+          BASE_PATH: "/subspace"
 
       - name: Setup Pages
         uses: actions/configure-pages@v5
