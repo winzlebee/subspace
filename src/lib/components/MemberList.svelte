@@ -1,5 +1,6 @@
 <script lang="ts">
     import { members, currentServer } from "$lib/stores";
+    import { getFileUrl } from "$lib/api";
 </script>
 
 <div
@@ -23,7 +24,7 @@
                     >
                         {#if member.avatar_url}
                             <img
-                                src={member.avatar_url}
+                                src={getFileUrl(member.avatar_url)}
                                 alt=""
                                 class="w-full h-full rounded-full object-cover"
                             />

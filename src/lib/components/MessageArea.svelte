@@ -16,6 +16,7 @@
         removeReaction,
         deleteMessage,
         editMessage,
+        getFileUrl,
     } from "$lib/api";
     import { wsSendTyping } from "$lib/ws";
     import { onMount, tick } from "svelte";
@@ -71,6 +72,9 @@
 
     // Configure marked for inline rendering (no wrapping <p>)
     const renderer = new marked.Renderer();
+    renderer.image = function ({ href, title, text }) {
+        return `<img src="${getFileUrl(href)}" alt="${text}" title="${title || ""}" class="max-w-xs max-h-60 rounded-lg" />`;
+    };
     renderer.paragraph = ({ text }) => `${text}`;
 
     function renderMarkdown(content: string): string {
@@ -330,7 +334,7 @@
                     >
                         {#if msg.author?.avatar_url}
                             <img
-                                src={msg.author.avatar_url}
+                                src={getFileUrl(msg.author.avatar_url)}
                                 alt=""
                                 class="w-full h-full object-cover"
                             />
@@ -377,13 +381,13 @@
                                 {#each msg.attachments as att}
                                     {#if att.mime_type.startsWith("image/")}
                                         <img
-                                            src={att.file_url}
+                                            src={getFileUrl(att.file_url)}
                                             alt={att.file_name}
                                             class="max-w-xs max-h-60 rounded-lg"
                                         />
                                     {:else}
                                         <a
-                                            href={att.file_url}
+                                            href={getFileUrl(att.file_url)}
                                             target="_blank"
                                             class="link link-primary text-sm flex items-center gap-1"
                                         >
@@ -475,13 +479,13 @@
                                 {#each msg.attachments as att}
                                     {#if att.mime_type.startsWith("image/")}
                                         <img
-                                            src={att.file_url}
+                                            src={getFileUrl(att.file_url)}
                                             alt={att.file_name}
                                             class="max-w-xs max-h-60 rounded-lg"
                                         />
                                     {:else}
                                         <a
-                                            href={att.file_url}
+                                            href={getFileUrl(att.file_url)}
                                             target="_blank"
                                             class="link link-primary text-sm"
                                             >📎 {att.file_name}</a

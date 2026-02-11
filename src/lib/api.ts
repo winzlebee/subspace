@@ -22,6 +22,13 @@ function getApiBase(): string {
     return `${getServerUrl()}/api`;
 }
 
+export function getFileUrl(path: string | null | undefined): string {
+    if (!path) return "";
+    if (path.startsWith("http")) return path;
+    if (path.startsWith("/")) return `${getServerUrl()}${path}`;
+    return `${getServerUrl()}/${path}`;
+}
+
 function getHeaders(): Record<string, string> {
     const token = localStorage.getItem("token");
     const headers: Record<string, string> = { "Content-Type": "application/json" };

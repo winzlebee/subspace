@@ -1,6 +1,6 @@
 <script lang="ts">
     import { showSettings, currentUser, theme, logout } from "$lib/stores";
-    import { updateMe, uploadFile } from "$lib/api";
+    import { updateMe, uploadFile, getFileUrl } from "$lib/api";
     import CloseButton from "./CloseButton.svelte";
     import { THEMES } from "$lib/config";
 
@@ -71,7 +71,7 @@
                     >
                         {#if $currentUser?.avatar_url}
                             <img
-                                src={$currentUser.avatar_url}
+                                src={getFileUrl($currentUser.avatar_url)}
                                 alt="Avatar"
                                 class="w-full h-full object-cover"
                             />

@@ -11,6 +11,7 @@
         createChannel,
         deleteChannel,
         listChannels,
+        getFileUrl,
     } from "$lib/api";
 
     import CloseButton from "./CloseButton.svelte";
@@ -148,7 +149,7 @@
                         >
                             {#if $currentServer?.icon_url}
                                 <img
-                                    src={$currentServer.icon_url}
+                                    src={getFileUrl($currentServer.icon_url)}
                                     alt="Server Icon"
                                     class="w-full h-full object-cover"
                                 />

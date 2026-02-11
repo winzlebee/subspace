@@ -12,6 +12,7 @@
   import { wsJoinVoice } from "$lib/ws";
   import { joinVoice, speakingUsers } from "$lib/webrtc";
   import ServerSettingsModals from "./ServerSettingsModals.svelte";
+  import { getFileUrl } from "$lib/api";
 
   let { onSelectChannel }: { onSelectChannel: (id: string) => void } = $props();
 
@@ -181,7 +182,7 @@
                         >
                           {#if vs.avatar_url}
                             <img
-                              src={vs.avatar_url}
+                              src={getFileUrl(vs.avatar_url)}
                               alt=""
                               class="w-full h-full object-cover rounded-full"
                             />

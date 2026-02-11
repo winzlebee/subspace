@@ -7,7 +7,7 @@
     currentUser,
     logout as doLogout,
   } from "$lib/stores";
-  import { joinServer, listServers } from "$lib/api";
+  import { joinServer, listServers, getFileUrl } from "$lib/api";
 
   let { onSelectServer }: { onSelectServer: (id: string) => void } = $props();
 
@@ -89,7 +89,7 @@
       >
         {#if server.icon_url}
           <img
-            src={server.icon_url}
+            src={getFileUrl(server.icon_url)}
             alt={server.name}
             class="w-full h-full rounded-[inherit] object-cover"
           />
@@ -155,7 +155,7 @@
   >
     {#if $currentUser?.avatar_url}
       <img
-        src={$currentUser.avatar_url}
+        src={getFileUrl($currentUser.avatar_url)}
         alt="avatar"
         class="w-full h-full rounded-full object-cover"
       />
