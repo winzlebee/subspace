@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.3.5] - 2026-02-12
+
+- Fix broken titlebar
+- Fix uploaded images not loading in the client
+
 ## [0.3.3] - 2026-02-12
 
 - Fix broken titlebar
