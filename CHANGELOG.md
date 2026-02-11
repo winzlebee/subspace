@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.3.1] - 2026-02-12
+
+- Fixed the CI/CD pipeline for building and releasing
+- Fixed the base path for the GitHub Pages deployment
+
 ## [0.2.4] - 2026-02-12
 
 ### Added
