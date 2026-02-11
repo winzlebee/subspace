@@ -5,17 +5,86 @@
         currentUser,
         typingUsers,
         currentChannelId,
+        members,
     } from "$lib/stores";
-    import { createMessage, uploadFile } from "$lib/api";
+    import {
+        createMessage,
+        uploadFile,
+        pinMessage,
+        unpinMessage,
+        addReaction,
+        removeReaction,
+        deleteMessage,
+        editMessage,
+    } from "$lib/api";
     import { wsSendTyping } from "$lib/ws";
     import { onMount, tick } from "svelte";
     import { fade, slide } from "svelte/transition";
+    import { marked } from "marked";
 
     let messageInput = $state("");
     let messagesContainer: HTMLDivElement | undefined = $state();
     let typingTimeout: ReturnType<typeof setTimeout> | null = null;
     let fileInput: HTMLInputElement | undefined = $state();
     let isUploading = $state(false);
+
+    // Mention autocomplete
+    let showMentions = $state(false);
+    let mentionQuery = $state("");
+    let mentionStartIdx = $state(-1);
+    let mentionResults = $derived(
+        mentionQuery.length === 0
+            ? [
+                  { id: "here", username: "here", special: true },
+                  { id: "everyone", username: "everyone", special: true },
+                  ...$members.map((m) => ({
+                      id: m.user_id,
+                      username: m.username,
+                      special: false,
+                  })),
+              ]
+            : [
+                  ...["here", "everyone"]
+                      .filter((s) =>
+                          s
+                              .toLowerCase()
+                              .startsWith(mentionQuery.toLowerCase()),
+                      )
+                      .map((s) => ({
+                          id: s,
+                          username: s,
+                          special: true,
+                      })),
+                  ...$members
+                      .filter((m) =>
+                          m.username
+                              .toLowerCase()
+                              .startsWith(mentionQuery.toLowerCase()),
+                      )
+                      .map((m) => ({
+                          id: m.user_id,
+                          username: m.username,
+                          special: false,
+                      })),
+              ],
+    );
+
+    // Configure marked for inline rendering (no wrapping <p>)
+    const renderer = new marked.Renderer();
+    renderer.paragraph = ({ text }) => `${text}`;
+
+    function renderMarkdown(content: string): string {
+        // Highlight @mentions before markdown processing
+        let processed = content.replace(
+            /@(here|everyone|\w+)/g,
+            '<span class="badge badge-sm badge-primary/20 text-primary font-semibold">@$1</span>',
+        );
+        try {
+            return marked.parseInline(processed, { renderer }) as string;
+        } catch {
+            return processed;
+        }
+    }
 
     // Scroll to bottom when messages change
     $effect(() => {
@@ -72,6 +141,20 @@
     }
 
     function handleKeydown(e: KeyboardEvent) {
+        if (showMentions) {
+            if (e.key === "Escape") {
+                e.preventDefault();
+                showMentions = false;
+                return;
+            }
+            if (e.key === "Tab" || e.key === "Enter") {
+                if (mentionResults.length > 0) {
+                    e.preventDefault();
+                    selectMention(mentionResults[0]);
+                    return;
+                }
+            }
+        }
         if (e.key === "Enter" && !e.shiftKey) {
             e.preventDefault();
             handleSend();
@@ -86,9 +169,80 @@
         }
     }
 
-    function triggerEmojiPicker() {
-        const textarea = document.querySelector("textarea");
-        textarea?.focus();
+    function handleInput(e: Event) {
+        const textarea = e.target as HTMLTextAreaElement;
+        const val = textarea.value;
+        const cursor = textarea.selectionStart;
+
+        // Check for @ mention trigger
+        const before = val.slice(0, cursor);
+        const atIdx = before.lastIndexOf("@");
+        if (
+            atIdx >= 0 &&
+            (atIdx === 0 ||
+                before[atIdx - 1] === " " ||
+                before[atIdx - 1] === "\n")
+        ) {
+            const query = before.slice(atIdx + 1);
+            if (!query.includes(" ")) {
+                showMentions = true;
+                mentionQuery = query;
+                mentionStartIdx = atIdx;
+                return;
+            }
+        }
+        showMentions = false;
+    }
+
+    function selectMention(mention: {
+        id: string;
+        username: string;
+        special: boolean;
+    }) {
+        const before = messageInput.slice(0, mentionStartIdx);
+        const after = messageInput.slice(
+            mentionStartIdx + 1 + mentionQuery.length,
+        );
+        messageInput = `${before}@${mention.username} ${after}`;
+        showMentions = false;
+    }
+
+    async function togglePin(msg: { id: string; pinned: boolean }) {
+        try {
+            if (msg.pinned) {
+                await unpinMessage(msg.id);
+            } else {
+                await pinMessage(msg.id);
+            }
+            messages.update((msgs) =>
+                msgs.map((m) =>
+                    m.id === msg.id ? { ...m, pinned: !m.pinned } : m,
+                ),
+            );
+        } catch (e) {
+            console.error("Pin toggle error:", e);
+        }
+    }
+
+    async function handleReaction(msgId: string) {
+        // Use native emoji input - prompt for emoji
+        const emoji = prompt("Enter an emoji:");
+        if (!emoji) return;
+        try {
+            await addReaction(msgId, emoji);
+        } catch (e) {
+            console.error("Reaction error:", e);
+        }
+    }
+
+    async function handleDelete(msgId: string) {
+        if (!confirm("Delete this message?")) return;
+        try {
+            await deleteMessage(msgId);
+            messages.update((msgs) => msgs.filter((m) => m.id !== msgId));
+        } catch (e) {
+            console.error("Delete error:", e);
+        }
     }
 
     function formatTime(dateStr: string): string {
@@ -164,10 +318,11 @@
                   new Date(prevMsg.created_at).getTime()
                 : Infinity}
             {@const grouped = sameAuthor && timeDiff < 300000}
+            {@const isOwn = msg.author_id === $currentUser?.id}
 
             {#if !grouped}
                 <div
-                    class="flex gap-3 pt-3 hover:bg-base-200/30 px-2 rounded-lg group"
+                    class="flex gap-3 pt-3 hover:bg-base-200/30 px-2 rounded-lg group relative"
                 >
                     <!-- Avatar -->
                     <div
@@ -197,22 +352,22 @@
                                     >(edited)</span
                                 >
                             {/if}
+                            {#if msg.pinned}
+                                <span
+                                    class="text-xs text-warning flex items-center gap-0.5"
+                                    title="Pinned message"
+                                >
+                                    📌 pinned
+                                </span>
+                            {/if}
                         </div>
 
-                        <!-- Content with markdown-like rendering for images -->
+                        <!-- Content with markdown rendering -->
                         <div
-                            class="text-sm text-base-content/90 whitespace-pre-wrap break-words"
+                            class="text-sm text-base-content/90 whitespace-pre-wrap break-words prose prose-sm max-w-none prose-a:text-primary prose-img:rounded-lg prose-img:max-w-md prose-img:max-h-80 prose-img:mt-2 prose-img:mb-1"
                         >
                             {#if msg.content}
-                                {@html msg.content
-                                    .replace(
-                                        /!\[(.*?)\]\((.*?)\)/g,
-                                        '<img src="$2" alt="$1" class="max-w-md max-h-80 rounded-lg mt-2 mb-1" />',
-                                    )
-                                    .replace(
-                                        /\[(.*?)\]\((.*?)\)/g,
-                                        '<a href="$2" target="_blank" class="link link-primary">$1</a>',
-                                    )}
+                                {@html renderMarkdown(msg.content)}
                             {/if}
                         </div>
 
@@ -232,21 +387,7 @@
                                             target="_blank"
                                             class="link link-primary text-sm flex items-center gap-1"
                                         >
-                                            <svg
-                                                xmlns="http://www.w3.org/2000/svg"
-                                                class="h-4 w-4"
-                                                fill="none"
-                                                viewBox="0 0 24 24"
-                                                stroke="currentColor"
-                                            >
-                                                <path
-                                                    stroke-linecap="round"
-                                                    stroke-linejoin="round"
-                                                    stroke-width="2"
-                                                    d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"
-                                                />
-                                            </svg>
-                                            {att.file_name}
+                                            📎 {att.file_name}
                                         </a>
                                     {/if}
                                 {/each}
@@ -267,11 +408,40 @@
                             </div>
                         {/if}
                     </div>
+
+                    <!-- Message actions (hover) -->
+                    <div
+                        class="absolute right-2 -top-3 hidden group-hover:flex items-center gap-0.5 bg-base-100 border border-base-300 rounded-lg px-1 py-0.5 shadow-md z-10"
+                    >
+                        <button
+                            class="btn btn-ghost btn-xs btn-square"
+                            title="Add reaction"
+                            onclick={() => handleReaction(msg.id)}
+                        >
+                            😀
+                        </button>
+                        <button
+                            class="btn btn-ghost btn-xs btn-square"
+                            title={msg.pinned ? "Unpin" : "Pin"}
+                            onclick={() => togglePin(msg)}
+                        >
+                            📌
+                        </button>
+                        {#if isOwn}
+                            <button
+                                class="btn btn-ghost btn-xs btn-square text-error"
+                                title="Delete"
+                                onclick={() => handleDelete(msg.id)}
+                            >
+                                🗑️
+                            </button>
+                        {/if}
+                    </div>
                 </div>
             {:else}
                 <!-- Grouped (same author) -->
                 <div
-                    class="flex gap-3 hover:bg-base-200/30 px-2 rounded-lg group"
+                    class="flex gap-3 hover:bg-base-200/30 px-2 rounded-lg group relative"
                 >
                     <div class="w-10 shrink-0 flex items-start justify-center">
                         <span
@@ -284,19 +454,19 @@
                         </span>
                     </div>
                     <div class="flex-1 min-w-0">
+                        {#if msg.pinned}
+                            <span
+                                class="text-xs text-warning flex items-center gap-0.5 mb-0.5"
+                                title="Pinned message"
+                            >
+                                📌 pinned
+                            </span>
+                        {/if}
                         <div
-                            class="text-sm text-base-content/90 whitespace-pre-wrap break-words"
+                            class="text-sm text-base-content/90 whitespace-pre-wrap break-words prose prose-sm max-w-none prose-a:text-primary prose-img:rounded-lg prose-img:max-w-md prose-img:max-h-80 prose-img:mt-2 prose-img:mb-1"
                         >
                             {#if msg.content}
-                                {@html msg.content
-                                    .replace(
-                                        /!\[(.*?)\]\((.*?)\)/g,
-                                        '<img src="$2" alt="$1" class="max-w-md max-h-80 rounded-lg mt-2 mb-1" />',
-                                    )
-                                    .replace(
-                                        /\[(.*?)\]\((.*?)\)/g,
-                                        '<a href="$2" target="_blank" class="link link-primary">$1</a>',
-                                    )}
+                                {@html renderMarkdown(msg.content)}
                             {/if}
                         </div>
                         <!-- Attachments (Native) for grouped -->
@@ -320,6 +490,48 @@
                                 {/each}
                             </div>
                         {/if}
+                        <!-- Reactions for grouped -->
+                        {#if msg.reactions?.length > 0}
+                            <div class="flex flex-wrap gap-1 mt-1">
+                                {#each msg.reactions as reaction}
+                                    <button
+                                        class="badge badge-sm badge-ghost gap-1 cursor-pointer hover:bg-primary/20 transition-colors"
+                                    >
+                                        {reaction.emoji}
+                                        {reaction.count}
+                                    </button>
+                                {/each}
+                            </div>
+                        {/if}
+                    </div>
+
+                    <!-- Message actions (hover) - grouped -->
+                    <div
+                        class="absolute right-2 -top-3 hidden group-hover:flex items-center gap-0.5 bg-base-100 border border-base-300 rounded-lg px-1 py-0.5 shadow-md z-10"
+                    >
+                        <button
+                            class="btn btn-ghost btn-xs btn-square"
+                            title="Add reaction"
+                            onclick={() => handleReaction(msg.id)}
+                        >
+                            😀
+                        </button>
+                        <button
+                            class="btn btn-ghost btn-xs btn-square"
+                            title={msg.pinned ? "Unpin" : "Pin"}
+                            onclick={() => togglePin(msg)}
+                        >
+                            📌
+                        </button>
+                        {#if isOwn}
+                            <button
+                                class="btn btn-ghost btn-xs btn-square text-error"
+                                title="Delete"
+                                onclick={() => handleDelete(msg.id)}
+                            >
+                                🗑️
+                            </button>
+                        {/if}
                     </div>
                 </div>
             {/if}
@@ -337,6 +549,34 @@
             >
                 <span class="loading loading-dots loading-xs"></span>
                 {typingText()}
+            </div>
+        {/if}
+
+        <!-- Mention Autocomplete -->
+        {#if showMentions && mentionResults.length > 0}
+            <div
+                class="bg-base-200 border border-base-300 rounded-lg shadow-lg mb-2 max-h-48 overflow-y-auto"
+                transition:slide
+            >
+                {#each mentionResults.slice(0, 8) as mention}
+                    <button
+                        class="w-full text-left px-3 py-2 text-sm hover:bg-base-300 transition-colors flex items-center gap-2"
+                        onclick={() => selectMention(mention)}
+                    >
+                        {#if mention.special}
+                            <span class="badge badge-sm badge-primary"
+                                >@{mention.username}</span
+                            >
+                        {:else}
+                            <span
+                                class="size-6 rounded-full bg-primary/20 flex items-center justify-center text-xs font-bold text-primary"
+                            >
+                                {mention.username[0].toUpperCase()}
+                            </span>
+                            <span>{mention.username}</span>
+                        {/if}
+                    </button>
+                {/each}
             </div>
         {/if}
 
@@ -381,13 +621,13 @@
                 placeholder="Message #{$currentChannel?.name ?? '...'}"
                 bind:value={messageInput}
                 onkeydown={handleKeydown}
+                oninput={handleInput}
                 rows="1"
             ></textarea>
 
-            <!-- Emoji Button (Placeholder / Native trigger) -->
+            <!-- Emoji Button -->
             <button
                 class="btn btn-circle btn-ghost btn-sm mb-1 text-base-content/60 hover:text-warning"
-                onclick={triggerEmojiPicker}
                 title="Emoji"
                 aria-label="Emoji picker"
             >

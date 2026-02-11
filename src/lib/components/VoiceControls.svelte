@@ -1,6 +1,11 @@
 <script lang="ts">
     import { voiceChannelId, isMuted, isDeafened, channels } from "$lib/stores";
     import { wsLeaveVoice, wsUpdateMuteDeafen } from "$lib/ws";
+    import {
+        leaveVoice,
+        toggleMute as rtcMute,
+        toggleDeafen as rtcDeafen,
+    } from "$lib/webrtc";
     import { derived } from "svelte/store";
 
     const voiceChannel = derived(
@@ -11,6 +16,7 @@
     function toggleMute() {
         isMuted.update((m) => {
             const next = !m;
+            rtcMute(next);
             wsUpdateMuteDeafen(next, false);
             return next;
         });
@@ -19,12 +25,19 @@
     function toggleDeafen() {
         isDeafened.update((d) => {
             const next = !d;
-            wsUpdateMuteDeafen(false, next);
+            rtcDeafen(next);
+            if (next) {
+                // Deafen implies mute
+                isMuted.set(true);
+                rtcMute(true);
+            }
+            wsUpdateMuteDeafen(next ? true : false, next);
             return next;
         });
     }
 
     function disconnect() {
+        leaveVoice();
         wsLeaveVoice();
         voiceChannelId.set(null);
         isMuted.set(false);
@@ -51,7 +64,7 @@
             class="btn btn-ghost btn-sm btn-square {$isMuted
                 ? 'text-error'
                 : 'text-base-content/60'}"
-            on:click={toggleMute}
+            onclick={toggleMute}
             title={$isMuted ? "Unmute" : "Mute"}
         >
             {#if $isMuted}
@@ -98,7 +111,7 @@
             class="btn btn-ghost btn-sm btn-square {$isDeafened
                 ? 'text-error'
                 : 'text-base-content/60'}"
-            on:click={toggleDeafen}
+            onclick={toggleDeafen}
             title={$isDeafened ? "Undeafen" : "Deafen"}
         >
             <svg
@@ -108,19 +121,34 @@
                 viewBox="0 0 24 24"
                 stroke="currentColor"
             >
-                <path
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    stroke-width="2"
-                    d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3"
-                />
+                {#if $isDeafened}
+                    <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="2"
+                        d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"
+                    />
+                    <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="2"
+                        d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2"
+                    />
+                {:else}
+                    <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="2"
+                        d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3"
+                    />
+                {/if}
             </svg>
         </button>
 
         <!-- Disconnect -->
         <button
             class="btn btn-ghost btn-sm btn-square text-error"
-            on:click={disconnect}
+            onclick={disconnect}
             title="Disconnect"
         >
             <svg

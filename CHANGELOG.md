@@ -7,10 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.2.3] - 2026-02-12
+
 ### Improved
 
+- Added pins
+- Added @mentions
+- Added speaking detection
+- Cleaned up build files
+- Fixed UI bug with muted users
 - Voice chat display and controls
-- Updated README
 
 ## [0.2.2] - 2026-02-11
 

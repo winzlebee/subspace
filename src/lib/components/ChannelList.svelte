@@ -9,8 +9,8 @@
     currentUser,
     currentServerId,
   } from "$lib/stores";
-  import { wsJoinVoice, wsLeaveVoice } from "$lib/ws";
-  import type { VoiceState } from "$lib/types";
+  import { wsJoinVoice } from "$lib/ws";
+  import { joinVoice, speakingUsers } from "$lib/webrtc";
   import ServerSettingsModals from "./ServerSettingsModals.svelte";
 
   let { onSelectChannel }: { onSelectChannel: (id: string) => void } = $props();
@@ -18,6 +18,7 @@
   let showServerSettings = $state(false);
 
   function joinVoiceChannel(channelId: string) {
+    joinVoice(channelId);
     wsJoinVoice(channelId);
     voiceChannelId.set(channelId);
 
@@ -167,19 +168,50 @@
               {#if users.length > 0}
                 <ul>
                   {#each users as vs (vs.user_id)}
+                    {@const isSpeaking = $speakingUsers.has(vs.user_id)}
                     <li>
-                      <a>
+                      <div
+                        class="flex items-center gap-2 text-xs text-base-content/50 py-0.5 px-1"
+                      >
                         <span
-                          class="size-6 rounded-full bg-base-300 flex items-center justify-center text-[10px] font-bold"
+                          class="size-6 rounded-full bg-base-300 flex items-center justify-center text-[10px] font-bold relative overflow-hidden
+                            {isSpeaking
+                            ? 'ring-2 ring-success ring-offset-1 ring-offset-base-200'
+                            : ''}"
                         >
-                          {(vs.username ?? "?")[0].toUpperCase()}
+                          {#if vs.avatar_url}
+                            <img
+                              src={vs.avatar_url}
+                              alt=""
+                              class="w-full h-full object-cover rounded-full"
+                            />
+                          {:else}
+                            {(vs.username ?? "?")[0].toUpperCase()}
+                          {/if}
                         </span>
-                        <span class="truncate">{vs.username ?? "Unknown"}</span>
-                        <span>
-                          {#if vs.muted}
+                        <span
+                          class="truncate {isSpeaking
+                            ? 'text-success font-medium'
+                            : ''}">{vs.username ?? "Unknown"}</span
+                        >
+                        <span class="flex items-center gap-0.5">
+                          {#if vs.deafened}
                             <svg
                               xmlns="http://www.w3.org/2000/svg"
-                              class="h-4 w-4 text-error"
+                              class="h-3.5 w-3.5 text-error"
+                              viewBox="0 0 20 20"
+                              fill="currentColor"
+                            >
+                              <path
+                                fill-rule="evenodd"
+                                d="M9.383 3.076A1 1 0 0110 4v12a1 1 0 01-1.707.707L4.586 13H2a1 1 0 01-1-1V8a1 1 0 011-1h2.586l3.707-3.707a1 1 0 011.09-.217zM12.293 7.293a1 1 0 011.414 0L15 8.586l1.293-1.293a1 1 0 111.414 1.414L16.414 10l1.293 1.293a1 1 0 01-1.414 1.414L15 11.414l-1.293 1.293a1 1 0 01-1.414-1.414L13.586 10l-1.293-1.293a1 1 0 010-1.414z"
+                                clip-rule="evenodd"
+                              />
+                            </svg>
+                          {:else if vs.muted}
+                            <svg
+                              xmlns="http://www.w3.org/2000/svg"
+                              class="h-3.5 w-3.5 text-error"
                               viewBox="0 0 20 20"
                               fill="currentColor"
                             >
@@ -191,7 +223,7 @@
                             </svg>
                           {/if}
                         </span>
-                      </a>
+                      </div>
                     </li>
                   {/each}
                 </ul>

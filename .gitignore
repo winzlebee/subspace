@@ -6,6 +6,7 @@ Cargo.lock
 # ---------- Node / Frontend ----------
 node_modules/
 dist/
+build/
 .output/
 .nuxt/
 .svelte-kit/

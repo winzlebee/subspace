@@ -43,6 +43,7 @@ pub fn api_routes(state: Arc<AppState>) -> Router<Arc<AppState>> {
         .route("/messages/{message_id}", axum::routing::patch(messages::edit_message))
         .route("/messages/{message_id}", axum::routing::delete(messages::delete_message))
         .route("/messages/{message_id}/pin", axum::routing::post(messages::pin_message))
+        .route("/messages/{message_id}/pin", axum::routing::delete(messages::unpin_message))
         .route("/messages/{message_id}/reactions", axum::routing::post(messages::add_reaction))
         .route("/messages/{message_id}/reactions", axum::routing::delete(messages::remove_reaction))
         .route("/upload", axum::routing::post(users::upload_file))

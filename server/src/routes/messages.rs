@@ -215,11 +215,23 @@ pub async fn pin_message(
     State(state): State<Arc<AppState>>,
     Path(message_id): Path<String>,
 ) -> impl IntoResponse {
-    // Toggle pin
     match state.db.pin_message(&message_id, true) {
         Ok(()) => StatusCode::OK.into_response(),
         Err(e) => {
             tracing::error!("Failed to pin message: {e}");
+            StatusCode::INTERNAL_SERVER_ERROR.into_response()
+        }
+    }
+}
+
+pub async fn unpin_message(
+    State(state): State<Arc<AppState>>,
+    Path(message_id): Path<String>,
+) -> impl IntoResponse {
+    match state.db.pin_message(&message_id, false) {
+        Ok(()) => StatusCode::OK.into_response(),
+        Err(e) => {
+            tracing::error!("Failed to unpin message: {e}");
             StatusCode::INTERNAL_SERVER_ERROR.into_response()
         }
     }

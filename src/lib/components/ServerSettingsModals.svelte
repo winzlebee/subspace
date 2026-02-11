@@ -3,9 +3,15 @@
         currentServerId,
         servers,
         currentServer,
-        showSettings,
+        channels,
     } from "$lib/stores";
-    import { updateServer, uploadFile } from "$lib/api";
+    import {
+        updateServer,
+        uploadFile,
+        createChannel,
+        deleteChannel,
+        listChannels,
+    } from "$lib/api";
 
     import CloseButton from "./CloseButton.svelte";
 
@@ -17,6 +23,15 @@
     let name = $state($currentServer?.name ?? "");
     let isUploading = $state(false);
     let saving = $state(false);
+
+    // Channel management
+    let newChannelName = $state("");
+    let newChannelType = $state<"text" | "voice">("text");
+    let creatingChannel = $state(false);
+    let deletingChannelId = $state<string | null>(null);
+
+    // Invite
+    let copied = $state(false);
 
     // Sync state when opening
     $effect(() => {
@@ -33,16 +48,12 @@
         isUploading = true;
         try {
             const result = await uploadFile(file);
-            // Update server with new icon URL
             const updated = await updateServer($currentServerId, {
                 icon_url: result.url,
             });
-
-            // Update local store
             servers.update((all) =>
                 all.map((s) => (s.id === $currentServerId ? updated : s)),
             );
-            // Store derived value should update automatically
         } catch (e) {
             console.error("Server icon upload failed:", e);
         } finally {
@@ -65,6 +76,47 @@
             saving = false;
         }
     }
+
+    async function handleCreateChannel() {
+        if (!newChannelName.trim() || !$currentServerId) return;
+        creatingChannel = true;
+        try {
+            await createChannel(
+                $currentServerId,
+                newChannelName.trim(),
+                newChannelType,
+            );
+            // Refresh channels
+            const chs = await listChannels($currentServerId);
+            channels.set(chs);
+            newChannelName = "";
+        } catch (e) {
+            console.error("Create channel failed:", e);
+        } finally {
+            creatingChannel = false;
+        }
+    }
+
+    async function handleDeleteChannel(channelId: string) {
+        if (!confirm("Delete this channel?")) return;
+        deletingChannelId = channelId;
+        try {
+            await deleteChannel(channelId);
+            channels.update((chs) => chs.filter((c) => c.id !== channelId));
+        } catch (e) {
+            console.error("Delete channel failed:", e);
+        } finally {
+            deletingChannelId = null;
+        }
+    }
+
+    function copyServerId() {
+        if ($currentServerId) {
+            navigator.clipboard.writeText($currentServerId);
+            copied = true;
+            setTimeout(() => (copied = false), 2000);
+        }
+    }
 </script>
 
 <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
@@ -80,9 +132,9 @@
         tabindex="0"
     >
         <div
-            class="card bg-base-100 w-full max-w-md shadow-2xl overflow-hidden"
+            class="card bg-base-100 w-full max-w-lg shadow-2xl overflow-hidden max-h-[90vh]"
         >
-            <div class="card-body">
+            <div class="card-body overflow-y-auto">
                 <div class="flex items-center justify-between mb-4">
                     <h2 class="card-title">Server Settings</h2>
                     <CloseButton {onClose} />
@@ -133,7 +185,7 @@
                 </div>
 
                 <!-- Server Name -->
-                <fieldset class="fieldset">
+                <fieldset class="fieldset mb-4">
                     <label class="fieldset-label" for="server-name-edit"
                         >Server Name</label
                     >
@@ -145,7 +197,99 @@
                     />
                 </fieldset>
 
-                <div class="card-actions justify-end mt-6">
+                <!-- Invite Code -->
+                <div class="mb-6">
+                    <h3 class="text-sm font-semibold text-base-content/70 mb-2">
+                        Invite Code
+                    </h3>
+                    <div class="flex items-center gap-2">
+                        <input
+                            type="text"
+                            class="input input-bordered input-sm flex-1 font-mono text-xs"
+                            value={$currentServerId ?? ""}
+                            readonly
+                        />
+                        <button
+                            class="btn btn-sm btn-outline"
+                            onclick={copyServerId}
+                        >
+                            {copied ? "✓ Copied!" : "Copy"}
+                        </button>
+                    </div>
+                    <p class="text-xs text-base-content/40 mt-1">
+                        Share this ID to let others join your server
+                    </p>
+                </div>
+
+                <!-- Channels Management -->
+                <div class="mb-6">
+                    <h3 class="text-sm font-semibold text-base-content/70 mb-3">
+                        Channels
+                    </h3>
+
+                    <!-- Existing channels -->
+                    <div class="space-y-1 mb-4 max-h-48 overflow-y-auto">
+                        {#each $channels as channel (channel.id)}
+                            <div
+                                class="flex items-center justify-between px-3 py-2 rounded-lg bg-base-200 group"
+                            >
+                                <div class="flex items-center gap-2">
+                                    <span class="text-xs text-base-content/40">
+                                        {channel.type === "text" ? "#" : "🔊"}
+                                    </span>
+                                    <span class="text-sm">{channel.name}</span>
+                                    <span class="badge badge-xs badge-ghost"
+                                        >{channel.type}</span
+                                    >
+                                </div>
+                                <button
+                                    class="btn btn-xs btn-ghost text-error opacity-0 group-hover:opacity-100 transition-opacity"
+                                    onclick={() =>
+                                        handleDeleteChannel(channel.id)}
+                                    disabled={deletingChannelId === channel.id}
+                                >
+                                    {deletingChannelId === channel.id
+                                        ? "..."
+                                        : "✕"}
+                                </button>
+                            </div>
+                        {/each}
+                    </div>
+
+                    <!-- Create new channel -->
+                    <div
+                        class="flex items-end gap-2 border-t border-base-300 pt-3"
+                    >
+                        <fieldset class="fieldset flex-1">
+                            <label class="fieldset-label" for="new-channel-name"
+                                >Name</label
+                            >
+                            <input
+                                id="new-channel-name"
+                                type="text"
+                                class="input input-bordered input-sm w-full"
+                                placeholder="new-channel"
+                                bind:value={newChannelName}
+                            />
+                        </fieldset>
+                        <select
+                            class="select select-bordered select-sm"
+                            bind:value={newChannelType}
+                        >
+                            <option value="text">Text</option>
+                            <option value="voice">Voice</option>
+                        </select>
+                        <button
+                            class="btn btn-sm btn-primary"
+                            onclick={handleCreateChannel}
+                            disabled={creatingChannel || !newChannelName.trim()}
+                        >
+                            {creatingChannel ? "..." : "+ Add"}
+                        </button>
+                    </div>
+                </div>
+
+                <div class="card-actions justify-end mt-2">
                     <button
                         class="btn btn-ghost"
                         onclick={onClose}

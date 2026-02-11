@@ -127,6 +127,10 @@ export async function pinMessage(messageId: string) {
     return request(`/messages/${messageId}/pin`, { method: "POST" });
 }
 
+export async function unpinMessage(messageId: string) {
+    return request(`/messages/${messageId}/pin`, { method: "DELETE" });
+}
+
 export async function addReaction(messageId: string, emoji: string) {
     return request(`/messages/${messageId}/reactions`, {
         method: "POST",
