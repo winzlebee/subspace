@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.3.6] - 2026-02-12
+
+- Fix leaving an instance
+
 ## [0.3.5] - 2026-02-12
 
 - Fix broken titlebar
