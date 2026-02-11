@@ -2,7 +2,7 @@
 
 > [!WARNING]
 > This project was almost entirely vibe-coded. It's intended to provide the bare-minimum functionality to begin a transition from Discord. I don't recommend using this in any case where you are allowing access to the server to anyone you don't know personally, as there are **severe security implications**. 
-> The authentication part seems to be fine, but the rest of it is a bit of a mess. Therefore, make sure if you use it you're using the provided [whitelist](#whitelist) feature to control access to the server.
+> The authentication part seems to be fine, but the rest of it is a bit of a mess. Therefore, make sure if you use it you're using the provided [letmein](#letmein) feature to control access to the server.
 > I'm not a security expert, so take this with a grain of salt.
 > Hey, at least I wrote the README 🤷
 
@@ -72,10 +72,28 @@ server {
 }
 ```
 
-### Whitelist
+## Configuration
 
-To restrict access, ensure the whitelist is configured in your server settings. This is critical for security as mentioned in the warnings above. You can manage the whitelist by editing the `whitelist.json` file generated in your mapped data volume.
+The configuration file for the server is generated on first run, and is located at `data/config.toml`. 
 
+### LetMeIn
+
+To restrict access, the `[letmein]` section is automatically configured with `enabled = true` on first run. This is critical for security as mentioned in the warnings above. 
+
+To begin with, this means nobody can join the server. Not even you. You can add yourself to the list of instance administrators after registering under the `instance_admins = []` field in the config file. Note that this takes UUID strings, not usernames. You can find your UUID in your user settings.
+
+As users join the server, they'll initially get a message saying that they're not allowed in and to wait for 'someone' to let them in. They can be let in by an instance admin using the 'Let Me In' button in the instance admin panel under 'Users waiting to get let in', which is only visible to instance admins. Before they do this, the user will be unable to do anything and we'll reject any API call they try to make. 
+
+If you'd like anyone to be able to connect to the server **Not recommended**, you can set `enabled = false` in the config file. The entire letmein system will be disabled, and anyone will be able to register to join the server. 
+
+## Technologies and Notes
+
+Not that it really matters (what - with it being vibe-coded and all), but here's what I told the LLM to use:
+
+- **Client**: *Tauri* - using Svelte, TailwindCSS, DaisyUI
+  It didn't really like using DaisyUI sometimes and just rolled-its-own using raw-dog TailwindCSS. Ah well. For example, I would have liked for it to use all of DaisyUI's avatar components.
+- **Server**: *Rust* - using Tokio, WebRTC, SQLite
+  The server was pretty much a one-shot affair, kinda impressing me in the process. It won't handle many, many users very well, mostly because of the Sqlite backend, but it's fine for now.
 
 ## Limitations
 
@@ -84,3 +102,6 @@ A lot at the moment. The ones that I plan to maybe plug away at;
 - Only sqlite is supported as a database backend at the moment. This limits this to smaller servers, as that's all I needed to get running.
 - No video and screenshare is available
 
+## Contributing
+
+I'm not really expecting anyone to contribute to this, but if you'd like to, feel free to open a pull request. I'm not really sure what I'm doing, so I'm open to suggestions. I'm not a security expert, so if you see any security issues, please let me know.
