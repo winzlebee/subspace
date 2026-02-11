@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.2.4] - 2026-02-12
+
+### Added
+
+- Configurable server URL setup screen
+- "Change Server" button on login screen
+
 ## [0.2.3] - 2026-02-12
 
 ### Improved
