@@ -107,12 +107,15 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tagName: ${{ github.ref_name }}
-          releaseName: 'Subspace ${{ github.ref_name }}'
-          releaseBody: ${{ needs.extract-changelog.outputs.release_body }}
-          releaseDraft: true
-          prerelease: false
           args: --target x86_64-unknown-linux-gnu
+          
+      - name: Upload Client Artifacts (Linux)
+        uses: actions/upload-artifact@v4
+        with:
+          name: client-linux
+          path: |
+            src-tauri/target/release/bundle/deb/*.deb
+            src-tauri/target/release/bundle/appimage/*.AppImage
 
   build-client-windows:
     needs: extract-changelog
@@ -138,12 +141,14 @@ jobs:
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        
+      - name: Upload Client Artifacts (Windows)
+        uses: actions/upload-artifact@v4
         with:
-          tagName: ${{ github.ref_name }}
-          releaseName: 'Subspace ${{ github.ref_name }}'
-          releaseBody: ${{ needs.extract-changelog.outputs.release_body }}
-          releaseDraft: true
-          prerelease: false
+          name: client-windows
+          path: |
+            src-tauri/target/release/bundle/nsis/*.exe
+            src-tauri/target/release/bundle/msi/*.msi
 
   docker-server:
     needs: build-server-linux
@@ -179,15 +184,21 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       
-      - name: Download artifacts
+      - name: Download all artifacts
         uses: actions/download-artifact@v4
         
       - name: List artifacts
         run: ls -R
         
-      - name: Upload Server Binary to Release
+      - name: Publish Release
         uses: softprops/action-gh-release@v1
         if: startsWith(github.ref, 'refs/tags/')
         with:
           body: ${{ needs.extract-changelog.outputs.release_body }}
-          files: server-linux/subspace-server-linux-x86_64
+          draft: true
+          files: |
+            server-linux/subspace-server-linux-x86_64
+            client-linux/*.deb
+            client-linux/*.AppImage
+            client-windows/*.exe
+            client-windows/*.msi
