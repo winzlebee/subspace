@@ -18,6 +18,19 @@ Client and server downloads are available on the [releases](https://github.com/w
 - Clients can download the client for their platform and enter the IP of your main server.
 - The client will remember this IP, and provide a discord-like interface for managing and connecting to servers.
 
+## Running locally
+
+```bash
+# Install dependencies
+npm install
+
+# Run the server
+cargo run -p server
+
+# Run the client
+npm run tauri dev
+```
+
 ## Detailed Hosting Instructions
 
 ### Docker Compose

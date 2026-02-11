@@ -10,6 +10,42 @@ permissions:
   packages: write
 
 jobs:
+  extract-changelog:
+    runs-on: ubuntu-latest
+    outputs:
+      release_body: ${{ steps.changelog.outputs.release_body }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Extract release notes from CHANGELOG.md
+        id: changelog
+        run: |
+          # Strip leading 'v' from tag to get the version number
+          VERSION="${GITHUB_REF_NAME#v}"
+          echo "Extracting changelog for version $VERSION"
+
+          # Use awk to extract the section for this version
+          BODY=$(awk -v ver="$VERSION" '
+            /^## \[/ {
+              if (found) exit
+              if (index($0, "[" ver "]")) found=1
+              next
+            }
+            found { print }
+          ' CHANGELOG.md)
+
+          # Fallback if no section found
+          if [ -z "$BODY" ]; then
+            BODY="See the assets to download this version and install."
+          fi
+
+          # Write multi-line output
+          {
+            echo "release_body<<EOF"
+            echo "$BODY"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
   build-server-linux:
     runs-on: ubuntu-latest
     steps:
@@ -34,6 +70,7 @@ jobs:
           path: target/release/subspace-server-linux-x86_64
 
   build-client-linux:
+    needs: extract-changelog
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -72,12 +109,13 @@ jobs:
         with:
           tagName: ${{ github.ref_name }}
           releaseName: 'Subspace ${{ github.ref_name }}'
-          releaseBody: 'See the assets to download this version and install.'
+          releaseBody: ${{ needs.extract-changelog.outputs.release_body }}
           releaseDraft: true
           prerelease: false
           args: --target x86_64-unknown-linux-gnu
 
   build-client-windows:
+    needs: extract-changelog
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
@@ -103,7 +141,7 @@ jobs:
         with:
           tagName: ${{ github.ref_name }}
           releaseName: 'Subspace ${{ github.ref_name }}'
-          releaseBody: 'See the assets to download this version and install.'
+          releaseBody: ${{ needs.extract-changelog.outputs.release_body }}
           releaseDraft: true
           prerelease: false
 
@@ -136,7 +174,7 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
 
   create-release:
-    needs: [build-server-linux, build-client-linux, build-client-windows]
+    needs: [extract-changelog, build-server-linux, build-client-linux, build-client-windows]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -147,16 +185,9 @@ jobs:
       - name: List artifacts
         run: ls -R
         
-      # Note: Tauri Action already uploads client binaries to the release.
-      # We just need to upload the server binary separately or append it.
-      # Since Tauri action creates the release, we might need to get that release upload url
-      # effectively, tauri-action is powerful but handles release creation itself.
-      # Strategy: Let Tauri action create release (it handles strict concurrency usually).
-      # If multiple matrix jobs run tauri-action, they attach to the same release id by tag.
-      # We just need to upload the extra server binary to that same release.
-      
       - name: Upload Server Binary to Release
         uses: softprops/action-gh-release@v1
         if: startsWith(github.ref, 'refs/tags/')
         with:
+          body: ${{ needs.extract-changelog.outputs.release_body }}
           files: server-linux/subspace-server-linux-x86_64
