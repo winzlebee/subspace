@@ -21,6 +21,7 @@
     showSettings,
     showCreateServer,
     voiceChannelId,
+    authToken,
   } from "$lib/stores";
 
   import ServerSidebar from "./ServerSidebar.svelte";
@@ -33,6 +34,12 @@
 
   let loading = $state(true);
   let initError = $state("");
+
+  // Server setup
+  let needsSetup = $state(false);
+  let setupUrl = $state("http://localhost:3001");
+  let setupTesting = $state(false);
+  let setupError = $state("");
 
   // Mobile responsive toggles
   let showMobileSidebar = $state(false);
@@ -63,6 +70,11 @@
   }
 
   onMount(() => {
+    initApp();
+    return () => disconnectWs();
+  });
+
+  function initApp() {
     (async () => {
       try {
         const user = await getMe();
@@ -80,9 +92,7 @@
         loading = false;
       }
     })();
-
-    return () => disconnectWs();
-  });
+  }
 
   async function selectServer(id: string) {
     currentServerId.set(id);

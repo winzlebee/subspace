@@ -1,8 +1,12 @@
 import { get } from "svelte/store";
-import { authToken, currentChannelId, messages, voiceStates, voiceChannelId, addTypingUser } from "./stores";
+import { authToken, currentUser, currentChannelId, messages, voiceStates, voiceChannelId, addTypingUser } from "./stores";
 import type { WsEnvelope, Message, VoiceState } from "./types";
+import { getServerUrl } from "./api";
 
-const WS_URL = "ws://localhost:3001/ws";
+function getWsUrl(): string {
+    const base = getServerUrl();
+    return base.replace(/^http/, "ws") + "/ws";
+}
 
 let socket: WebSocket | null = null;
 let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
@@ -10,7 +14,7 @@ let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
 export function connectWs() {
     if (socket?.readyState === WebSocket.OPEN) return;
 
-    socket = new WebSocket(WS_URL);
+    socket = new WebSocket(getWsUrl());
 
     socket.onopen = () => {
         const token = get(authToken);
@@ -104,6 +108,10 @@ function handleMessage(env: WsEnvelope) {
     switch (env.type) {
         case "auth_success":
             console.log("WebSocket authenticated");
+            // Request notification permission
+            if (typeof Notification !== "undefined" && Notification.permission === "default") {
+                Notification.requestPermission();
+            }
             break;
 
         case "message_created": {
@@ -114,6 +122,11 @@ function handleMessage(env: WsEnvelope) {
                     if (msgs.some((m) => m.id === msg.id)) return msgs;
                     return [...msgs, msg];
                 });
+            }
+            // Desktop notification if window not focused and not own message
+            const me = get(currentUser);
+            if (me && msg.author_id !== me.id && !document.hasFocus()) {
+                showNotification(msg.author?.username ?? "Someone", msg.content ?? "");
             }
             break;
         }
@@ -176,4 +189,18 @@ function handleMessage(env: WsEnvelope) {
         default:
             console.warn("Unknown WS message:", env.type);
     }
+}
+
+// ── Desktop notifications ────────────────────────────────────────────
+
+function showNotification(title: string, body: string) {
+    if (typeof Notification === "undefined" || Notification.permission !== "granted") return;
+    const n = new Notification(title, {
+        body: body.length > 100 ? body.slice(0, 100) + "…" : body,
+        silent: false,
+    });
+    n.onclick = () => {
+        window.focus();
+        n.close();
+    };
 }

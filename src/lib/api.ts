@@ -1,6 +1,26 @@
 import type { AuthResponse, Server, Channel, Message, ServerMember, Attachment } from "./types";
 
-const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:3001/api";
+const STORAGE_KEY = "subspace_server_url";
+
+export function getServerUrl(): string {
+    if (typeof localStorage !== "undefined") {
+        const stored = localStorage.getItem(STORAGE_KEY);
+        if (stored) return stored;
+    }
+    return import.meta.env.VITE_API_URL || "http://localhost:3001";
+}
+
+export function setServerUrl(url: string) {
+    localStorage.setItem(STORAGE_KEY, url);
+}
+
+export function clearServerUrl() {
+    localStorage.removeItem(STORAGE_KEY);
+}
+
+function getApiBase(): string {
+    return `${getServerUrl()}/api`;
+}
 
 function getHeaders(): Record<string, string> {
     const token = localStorage.getItem("token");
@@ -10,7 +30,7 @@ function getHeaders(): Record<string, string> {
 }
 
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
-    const res = await fetch(`${API_BASE}${path}`, {
+    const res = await fetch(`${getApiBase()}${path}`, {
         ...options,
         headers: { ...getHeaders(), ...(options.headers || {}) },
     });
@@ -151,7 +171,7 @@ export async function uploadFile(file: File): Promise<{ url: string; file_name: 
     const formData = new FormData();
     formData.append("file", file);
     const token = localStorage.getItem("token");
-    const res = await fetch(`${API_BASE}/upload`, {
+    const res = await fetch(`${getApiBase()}/upload`, {
         method: "POST",
         headers: token ? { Authorization: `Bearer ${token}` } : {},
         body: formData,

@@ -1,7 +1,9 @@
 <script lang="ts">
-  import { login, register, uploadFile } from "$lib/api";
+  import { login, register, uploadFile, clearServerUrl } from "$lib/api";
   import { authToken, currentUser } from "$lib/stores";
   import { APP_NAME } from "$lib/config";
+
+  let { onChangeServer }: { onChangeServer: () => void } = $props();
 
   let username = $state("");
   let password = $state("");
@@ -186,6 +188,19 @@
           ? "Already have an account? Sign in"
           : "Need an account? Register"}
       </button>
+
+      {#if !isRegister}
+        <div class="divider text-xs">SERVER</div>
+        <button
+          class="btn btn-ghost btn-xs text-base-content/50 hover:text-base-content"
+          onclick={() => {
+            clearServerUrl();
+            onChangeServer();
+          }}
+        >
+          Change Server
+        </button>
+      {/if}
     </div>
   </div>
 </div>
