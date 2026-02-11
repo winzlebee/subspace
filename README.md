@@ -1,8 +1,9 @@
 # Subspace
 
 > [!WARNING]
-> This project was almost entirely vibe-coded. It's intended to provide the bare-minimum functionality to begin a transition from Discord. I don't recommend using this in any case where you are allowing access to the server to anyone you don't know personally, as there are **severe security implications**. 
-> The authentication part seems to be fine, but the rest of it is a bit of a mess. Therefore, make sure if you use it you're using the provided [letmein](#letmein) feature to control access to the server.
+> This project was almost entirely vibe-coded. It's intended to provide the bare-minimum functionality to begin a transition from Discord. I don't recommend using this in any situation.
+> If for some reason you do, only allow access to the server to people you know personally, as there are **severe security implications**. 
+> For example, the `/upload` endpoint was vibe-given public access by Claude. Lmao.
 > I'm not a security expert, so take this with a grain of salt.
 > Hey, at least I wrote the README 🤷
 
