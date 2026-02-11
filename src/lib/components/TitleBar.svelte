@@ -1,21 +1,32 @@
-<script lang="ts">
-    import { getCurrentWindow } from "@tauri-apps/api/window";
+    import { onMount } from "svelte";
     import { APP_NAME } from "$lib/config";
 
-    const appWindow = getCurrentWindow();
+    let appWindow: any = null;
+    let isTauri = false;
+
+    onMount(async () => {
+        // Check if running in Tauri
+        if (typeof window !== "undefined" && "__TAURI_INTERNALS__" in window) {
+            isTauri = true;
+            const { getCurrentWindow } = await import("@tauri-apps/api/window");
+            appWindow = getCurrentWindow();
+        }
+    });
 
     async function minimize() {
-        await appWindow.minimize();
+        if (appWindow) await appWindow.minimize();
     }
 
     async function toggleMaximize() {
-        await appWindow.toggleMaximize();
+        if (appWindow) await appWindow.toggleMaximize();
     }
 
     async function close() {
-        await appWindow.close();
+        if (appWindow) await appWindow.close();
     }
 </script>
+
+{#if isTauri}
 
 <!-- svelte-ignore a11y_no_static_element_interactions -->
 <div
@@ -88,3 +99,4 @@
         </button>
     </div>
 </div>
+{/if}
