@@ -107,19 +107,12 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
+          tagName: ${{ github.ref_name }}
+          releaseName: '${{ github.ref_name }}'
+          releaseBody: ${{ needs.extract-changelog.outputs.release_body }}
+          releaseDraft: false
+          prerelease: false
           args: --target x86_64-unknown-linux-gnu
-          
-      - name: Prepare Artifacts
-        run: |
-          mkdir -p client-dist
-          cp src-tauri/target/release/bundle/deb/*.deb client-dist/
-          cp src-tauri/target/release/bundle/appimage/*.AppImage client-dist/
-
-      - name: Upload Client Artifacts (Linux)
-        uses: actions/upload-artifact@v4
-        with:
-          name: client-linux
-          path: client-dist/*
 
   build-client-windows:
     needs: extract-changelog
@@ -145,19 +138,12 @@ jobs:
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        
-      - name: Prepare Artifacts
-        run: |
-          mkdir client-dist
-          copy src-tauri\target\release\bundle\nsis\*.exe client-dist\
-          copy src-tauri\target\release\bundle\msi\*.msi client-dist\
-        shell: cmd
-
-      - name: Upload Client Artifacts (Windows)
-        uses: actions/upload-artifact@v4
         with:
-          name: client-windows
-          path: client-dist/*
+          tagName: ${{ github.ref_name }}
+          releaseName: '${{ github.ref_name }}'
+          releaseBody: ${{ needs.extract-changelog.outputs.release_body }}
+          releaseDraft: false
+          prerelease: false
 
   docker-server:
     needs: build-server-linux
@@ -193,21 +179,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       
-      - name: Download all artifacts
+      - name: Download artifacts
         uses: actions/download-artifact@v4
         
       - name: List artifacts
         run: ls -R
         
-      - name: Publish Release
+      - name: Upload Server Binary to Release
         uses: softprops/action-gh-release@v1
         if: startsWith(github.ref, 'refs/tags/')
         with:
           body: ${{ needs.extract-changelog.outputs.release_body }}
-          draft: true
-          files: |
-            server-linux/subspace-server-linux-x86_64
-            client-linux/*.deb
-            client-linux/*.AppImage
-            client-windows/*.exe
-            client-windows/*.msi
+          files: server-linux/subspace-server-linux-x86_64
