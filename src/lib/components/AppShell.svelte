@@ -7,6 +7,7 @@
     listChannels,
     getServerMembers,
     getMessages,
+    clearServerUrl,
   } from "$lib/api";
   import {
     currentUser,
@@ -159,9 +160,23 @@
       </svg>
       <p class="text-lg text-error mb-2">Connection Failed</p>
       <p class="text-sm text-base-content/50 mb-4">{initError}</p>
-      <button class="btn btn-primary btn-sm" onclick={() => location.reload()}>
-        Retry
-      </button>
+      <div class="flex gap-2 justify-center">
+        <button
+          class="btn btn-primary btn-sm"
+          onclick={() => location.reload()}
+        >
+          Retry
+        </button>
+        <button
+          class="btn btn-ghost btn-sm"
+          onclick={() => {
+            clearServerUrl();
+            location.reload();
+          }}
+        >
+          Change Server
+        </button>
+      </div>
     </div>
   </div>
 {:else}

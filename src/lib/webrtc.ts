@@ -13,49 +13,101 @@ const STUN_SERVERS = {
 
 let localStream: MediaStream | null = null;
 let peerConnections: Record<string, RTCPeerConnection> = {};
-let remoteAudioElements: Record<string, HTMLAudioElement> = {};
+
+// ── Web Audio API Context ────────────────────────────────────────────────────
+// We use a single global AudioContext for both playback and analysis.
+// This context must be resumed on a user interaction (Join Voice click).
+let globalAudioCtx: AudioContext | null = null;
+
+// Track nodes to clean them up later
+// key: userId
+const remoteNodes: Record<string, { source: MediaStreamAudioSourceNode; analyser: AnalyserNode; gain: GainNode }> = {};
+
+// Local nodes (for speaking detection only, not playback)
+let localNodes: { source: MediaStreamAudioSourceNode; analyser: AnalyserNode } | null = null;
 
 // ── Speaking detection ───────────────────────────────────────────────────────
 export const speakingUsers = writable<Set<string>>(new Set());
-
-let localAnalyser: AnalyserNode | null = null;
-let localAudioCtx: AudioContext | null = null;
 let speakingCheckInterval: ReturnType<typeof setInterval> | null = null;
-const remoteAnalysers: Record<string, { ctx: AudioContext; analyser: AnalyserNode }> = {};
-
 const SPEAKING_THRESHOLD = 15; // amplitude threshold for "speaking"
 
-function startLocalSpeakingDetection() {
-    if (!localStream) return;
+function initAudioContext() {
+    if (!globalAudioCtx) {
+        globalAudioCtx = new AudioContext();
+    }
+    if (globalAudioCtx.state === "suspended") {
+        globalAudioCtx.resume().catch(e => console.error("Failed to resume AudioContext:", e));
+    }
+}
+
+function stopAudioContext() {
+    if (globalAudioCtx) {
+        globalAudioCtx.close().catch(() => { });
+        globalAudioCtx = null;
+    }
+}
+
+function startLocalSpeakingDetection(stream: MediaStream) {
+    if (!globalAudioCtx) initAudioContext();
+    if (!globalAudioCtx) return;
+
     try {
-        localAudioCtx = new AudioContext();
-        const source = localAudioCtx.createMediaStreamSource(localStream);
-        localAnalyser = localAudioCtx.createAnalyser();
-        localAnalyser.fftSize = 256;
-        source.connect(localAnalyser);
+        const source = globalAudioCtx.createMediaStreamSource(stream);
+        const analyser = globalAudioCtx.createAnalyser();
+        analyser.fftSize = 256;
+        source.connect(analyser);
+        // Do NOT connect to destination (feedback loop)
+
+        localNodes = { source, analyser };
     } catch (e) {
         console.error("Failed to start local speaking detection:", e);
     }
 }
 
-function startRemoteSpeakingDetection(userId: string, stream: MediaStream) {
-    try {
-        const ctx = new AudioContext();
-        const source = ctx.createMediaStreamSource(stream);
-        const analyser = ctx.createAnalyser();
-        analyser.fftSize = 256;
-        source.connect(analyser);
-        remoteAnalysers[userId] = { ctx, analyser };
-    } catch (e) {
-        console.error("Failed to start remote speaking detection:", e);
+function stopLocalSpeakingDetection() {
+    if (localNodes) {
+        localNodes.source.disconnect();
+        localNodes.analyser.disconnect();
+        localNodes = null;
     }
 }
 
-function stopRemoteSpeakingDetection(userId: string) {
-    const entry = remoteAnalysers[userId];
-    if (entry) {
-        entry.ctx.close().catch(() => { });
-        delete remoteAnalysers[userId];
+function handleRemoteStream(userId: string, stream: MediaStream) {
+    if (!globalAudioCtx) initAudioContext();
+    if (!globalAudioCtx) return;
+
+    // Check if we already handle this user
+    if (remoteNodes[userId]) return;
+
+    try {
+        const source = globalAudioCtx.createMediaStreamSource(stream);
+        const analyser = globalAudioCtx.createAnalyser();
+        analyser.fftSize = 256;
+        const gain = globalAudioCtx.createGain(); // For muet/unmute or volume
+
+        // Connect graph: Source -> Analyser -> Gain -> Destination (Speakers)
+        source.connect(analyser);
+        analyser.connect(gain);
+        gain.connect(globalAudioCtx.destination);
+
+        remoteNodes[userId] = { source, analyser, gain };
+
+        // Handle stream end
+        stream.onremovetrack = () => {
+            cleanupRemoteUser(userId);
+        };
+    } catch (e) {
+        console.error("Failed to handle remote stream:", e);
+    }
+}
+
+function cleanupRemoteUser(userId: string) {
+    if (remoteNodes[userId]) {
+        const { source, analyser, gain } = remoteNodes[userId];
+        source.disconnect();
+        analyser.disconnect();
+        gain.disconnect();
+        delete remoteNodes[userId];
     }
 }
 
@@ -66,15 +118,15 @@ function startSpeakingCheckLoop() {
         const myId = get(currentUser)?.id;
 
         // Check local
-        if (localAnalyser && myId) {
-            const data = new Uint8Array(localAnalyser.frequencyBinCount);
-            localAnalyser.getByteFrequencyData(data);
+        if (localNodes && myId) {
+            const data = new Uint8Array(localNodes.analyser.frequencyBinCount);
+            localNodes.analyser.getByteFrequencyData(data);
             const avg = data.reduce((a, b) => a + b, 0) / data.length;
             if (avg > SPEAKING_THRESHOLD) speaking.add(myId);
         }
 
         // Check remotes
-        for (const [userId, { analyser }] of Object.entries(remoteAnalysers)) {
+        for (const [userId, { analyser }] of Object.entries(remoteNodes)) {
             const data = new Uint8Array(analyser.frequencyBinCount);
             analyser.getByteFrequencyData(data);
             const avg = data.reduce((a, b) => a + b, 0) / data.length;
@@ -97,6 +149,9 @@ function stopSpeakingCheckLoop() {
 
 export async function joinVoice(channelId: string) {
     try {
+        // 0. Init Audio Context (must happen during user interaction event loop roughly)
+        initAudioContext();
+
         // 1. Get local audio
         localStream = await navigator.mediaDevices.getUserMedia({
             audio: true,
@@ -104,7 +159,7 @@ export async function joinVoice(channelId: string) {
         });
 
         // 2. Start speaking detection
-        startLocalSpeakingDetection();
+        startLocalSpeakingDetection(localStream);
         startSpeakingCheckLoop();
 
         // 3. Listen for signaling events
@@ -131,28 +186,18 @@ export function leaveVoice() {
         localStream.getTracks().forEach((t) => t.stop());
         localStream = null;
     }
+    stopLocalSpeakingDetection();
 
     // 2. Close all peer connections
     Object.values(peerConnections).forEach((pc) => pc.close());
     peerConnections = {};
 
-    // 3. Remove audio elements
-    Object.values(remoteAudioElements).forEach((audio) => {
-        audio.srcObject = null;
-        audio.remove();
-    });
-    remoteAudioElements = {};
+    // 3. Cleanup remote nodes
+    Object.keys(remoteNodes).forEach(cleanupRemoteUser);
 
-    // 4. Stop speaking detection
+    // 4. Stop speaking detection loop & AudioContext
     stopSpeakingCheckLoop();
-    if (localAudioCtx) {
-        localAudioCtx.close().catch(() => { });
-        localAudioCtx = null;
-        localAnalyser = null;
-    }
-    for (const userId of Object.keys(remoteAnalysers)) {
-        stopRemoteSpeakingDetection(userId);
-    }
+    stopAudioContext();
 
     // 5. Remove listeners
     window.removeEventListener("webrtc_signal", handleSignal as unknown as EventListener);
@@ -165,9 +210,9 @@ export function toggleMute(muted: boolean) {
 }
 
 export function toggleDeafen(deafened: boolean) {
-    // Mute/unmute all remote audio elements
-    Object.values(remoteAudioElements).forEach((audio) => {
-        audio.muted = deafened;
+    // Mute/unmute all remote audio via GainNodes
+    Object.values(remoteNodes).forEach(({ gain }) => {
+        gain.gain.value = deafened ? 0 : 1;
     });
 }
 
@@ -200,8 +245,7 @@ async function createPeerConnection(targetUserId: string, initiator: boolean) {
     pc.ontrack = (event) => {
         const [remoteStream] = event.streams;
         if (remoteStream) {
-            playRemoteStream(targetUserId, remoteStream);
-            startRemoteSpeakingDetection(targetUserId, remoteStream);
+            handleRemoteStream(targetUserId, remoteStream);
         }
     };
 
@@ -221,39 +265,36 @@ async function createPeerConnection(targetUserId: string, initiator: boolean) {
     return pc;
 }
 
-function playRemoteStream(userId: string, stream: MediaStream) {
-    if (remoteAudioElements[userId]) return;
-
-    const audio = document.createElement("audio");
-    audio.srcObject = stream;
-    audio.autoplay = true;
-    audio.style.display = "none";
-    document.body.appendChild(audio);
-    remoteAudioElements[userId] = audio;
-
-    // Handle stream end
-    stream.onremovetrack = () => {
-        audio.remove();
-        delete remoteAudioElements[userId];
-        stopRemoteSpeakingDetection(userId);
-    };
-}
-
 async function handleSignal(event: CustomEvent) {
     const env = event.detail;
     const type = env.type;
 
+    const myId = get(currentUser)?.id;
+    if (!myId) return;
+
     if (type === "signal_sdp") {
         const payload = env.payload as SignalSdpPayload;
-        const { from_user_id, sdp, sdp_type } = payload;
+        const { from_user_id, target_user_id, sdp, sdp_type } = payload;
+
+        if (target_user_id !== myId) return;
+        console.log(`Received SDP ${sdp_type} from ${from_user_id}`);
 
         let pc = peerConnections[from_user_id];
+
         if (!pc) {
-            // Received offer from someone else -> we are answerer
+            if (sdp_type === "answer") {
+                console.warn(`Ignoring answer from ${from_user_id} - no local connection`);
+                return;
+            }
             pc = await createPeerConnection(from_user_id, false);
         }
 
         try {
+            if (sdp_type === "answer" && pc.signalingState !== "have-local-offer") {
+                console.warn(`Ignoring answer from ${from_user_id} - state is ${pc.signalingState}`);
+                return;
+            }
+
             const descObj = JSON.parse(sdp);
             await pc.setRemoteDescription(descObj);
 
@@ -268,7 +309,9 @@ async function handleSignal(event: CustomEvent) {
 
     } else if (type === "signal_ice") {
         const payload = env.payload as SignalIcePayload;
-        const { from_user_id, candidate } = payload;
+        const { from_user_id, target_user_id, candidate } = payload;
+
+        if (target_user_id !== myId) return;
 
         const pc = peerConnections[from_user_id];
         if (pc) {

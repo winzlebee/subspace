@@ -353,6 +353,7 @@ async fn handle_client_message(text: &str, user_id: &str, state: &Arc<AppState>)
                             payload: serde_json::to_value(
                                 shared::ws_messages::WsSignalSdpRelay {
                                     from_user_id: uuid::Uuid::parse_str(user_id).unwrap(),
+                                    target_user_id: msg.target_user_id,
                                     sdp: msg.sdp,
                                     sdp_type: msg.sdp_type,
                                 },
@@ -383,6 +384,7 @@ async fn handle_client_message(text: &str, user_id: &str, state: &Arc<AppState>)
                             payload: serde_json::to_value(
                                 shared::ws_messages::WsSignalIceRelay {
                                     from_user_id: uuid::Uuid::parse_str(user_id).unwrap(),
+                                    target_user_id: msg.target_user_id,
                                     candidate: msg.candidate,
                                     sdp_mid: msg.sdp_mid,
                                     sdp_mline_index: msg.sdp_mline_index,

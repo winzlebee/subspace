@@ -99,12 +99,14 @@ export interface WsEnvelope {
 
 export interface SignalSdpPayload {
     from_user_id: string;
+    target_user_id: string;
     sdp: string;
     sdp_type: "offer" | "answer";
 }
 
 export interface SignalIcePayload {
     from_user_id: string;
+    target_user_id: string;
     candidate: string;
     sdp_mid: string | null;
     sdp_mline_index: number | null;

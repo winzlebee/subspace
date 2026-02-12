@@ -1,5 +1,5 @@
 import { get } from "svelte/store";
-import { authToken, currentUser, currentChannelId, messages, voiceStates, voiceChannelId, addTypingUser } from "./stores";
+import { authToken, currentUser, currentChannelId, currentServerId, messages, voiceStates, voiceChannelId, addTypingUser, members } from "./stores";
 import type { WsEnvelope, Message, VoiceState } from "./types";
 import { getServerUrl } from "./api";
 
@@ -179,6 +179,15 @@ function handleMessage(env: WsEnvelope) {
             const { channel_id, user } = env.payload;
             if (user) {
                 addTypingUser(channel_id, user);
+            }
+            break;
+        }
+
+        case "member_joined": {
+            const { server_id, member } = env.payload;
+            const current = get(currentServerId);
+            if (current === server_id) {
+                members.update((m) => [...m, member]);
             }
             break;
         }

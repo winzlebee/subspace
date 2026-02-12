@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.4.1] - 2026-02-13
+
+- Fix voice chat not working
+- Show users as they join the server
+
 ## [0.4.0] - 2026-02-12
 
 - Fix joining servers with a UUID

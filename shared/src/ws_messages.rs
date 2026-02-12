@@ -129,6 +129,7 @@ pub struct WsVoiceStateUpdate {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WsSignalSdpRelay {
     pub from_user_id: Uuid,
+    pub target_user_id: Uuid,
     pub sdp: String,
     pub sdp_type: String,
 }
@@ -136,9 +137,16 @@ pub struct WsSignalSdpRelay {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WsSignalIceRelay {
     pub from_user_id: Uuid,
+    pub target_user_id: Uuid,
     pub candidate: String,
     pub sdp_mid: Option<String>,
     pub sdp_mline_index: Option<u16>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WsMemberJoined {
+    pub server_id: Uuid,
+    pub member: crate::models::ServerMember,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

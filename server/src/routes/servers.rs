@@ -105,7 +105,43 @@ pub async fn join_server(
 ) -> impl IntoResponse {
     let user = req.extensions().get::<AuthUser>().unwrap().clone();
     match state.db.join_server(&user.user_id, &server_id) {
-        Ok(()) => StatusCode::NO_CONTENT.into_response(),
+        Ok(()) => {
+
+            let joined_at_secs = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_secs()
+                .to_string();
+
+            let user_row = match state.db.get_user_by_id(&user.user_id) {
+                Ok(Some(row)) => row,
+                _ => return StatusCode::INTERNAL_SERVER_ERROR.into_response(),
+            };
+
+            let member = shared::models::ServerMember {
+                user_id: Uuid::parse_str(&user.user_id).unwrap(),
+                server_id: Uuid::parse_str(&server_id).unwrap(),
+                role: "member".to_string(),
+                joined_at: joined_at_secs,
+                username: user_row.username.clone(),
+                avatar_url: user_row.avatar_url.clone(),
+            };
+
+            let ws_msg = shared::ws_messages::WsEnvelope {
+                msg_type: "member_joined".to_string(),
+                payload: serde_json::to_value(shared::ws_messages::WsMemberJoined {
+                    server_id: Uuid::parse_str(&server_id).unwrap(),
+                    member,
+                })
+                .unwrap(),
+            };
+            state
+                .ws_state
+                .broadcast_to_server(&server_id, &serde_json::to_string(&ws_msg).unwrap())
+                .await;
+
+            StatusCode::NO_CONTENT.into_response()
+        }
         Err(e) => {
             tracing::error!("Failed to join server: {e}");
             StatusCode::INTERNAL_SERVER_ERROR.into_response()

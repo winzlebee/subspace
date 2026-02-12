@@ -8,6 +8,7 @@
     logout as doLogout,
   } from "$lib/stores";
   import { joinServer, listServers, getFileUrl } from "$lib/api";
+  import { disconnectWs, connectWs } from "$lib/ws";
 
   let { onSelectServer }: { onSelectServer: (id: string) => void } = $props();
 
@@ -34,6 +35,11 @@
       // Refresh servers
       const updated = await listServers();
       servers.set(updated);
+
+      // Force reconnect to pick up new server subscription
+      disconnectWs();
+      connectWs();
+
       onSelectServer(joinServerId.trim());
       showJoinModal = false;
       joinServerId = "";
