@@ -63,6 +63,7 @@ export function wsSendMessage(channelId: string, content: string) {
 }
 
 export function wsSendTyping(channelId: string) {
+    // console.log("Sending typing for", channelId);
     send({ type: "typing", payload: { channel_id: channelId } });
 }
 
@@ -138,11 +139,18 @@ function handleMessage(env: WsEnvelope) {
         }
 
         case "message_updated": {
-            const { message_id, content, edited_at } = env.payload;
+            const { message_id, content, edited_at, pinned } = env.payload;
             messages.update((msgs) =>
                 msgs.map((m) =>
-                    m.id === message_id ? { ...m, content, edited_at } : m
-                )
+                    m.id === message_id
+                        ? {
+                            ...m,
+                            content: content ?? m.content,
+                            edited_at: edited_at ?? m.edited_at,
+                            pinned: pinned ?? m.pinned,
+                        }
+                        : m,
+                ),
             );
             break;
         }
@@ -167,6 +175,7 @@ function handleMessage(env: WsEnvelope) {
         }
 
         case "user_typing": {
+            // console.log("Received user_typing", env.payload);
             const { channel_id, user } = env.payload;
             if (user) {
                 addTypingUser(channel_id, user);

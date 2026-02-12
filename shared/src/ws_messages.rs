@@ -97,8 +97,9 @@ pub struct WsMessageCreated {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WsMessageUpdated {
     pub message_id: Uuid,
-    pub content: String,
-    pub edited_at: String,
+    pub content: Option<String>,
+    pub edited_at: Option<String>,
+    pub pinned: Option<bool>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

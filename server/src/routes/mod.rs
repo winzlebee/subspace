@@ -39,6 +39,7 @@ pub fn api_routes(state: Arc<AppState>) -> Router<Arc<AppState>> {
         .route("/servers/{server_id}/channels", axum::routing::post(channels::create_channel))
         .route("/channels/{channel_id}", axum::routing::delete(channels::delete_channel))
         .route("/channels/{channel_id}/messages", axum::routing::get(messages::get_messages))
+        .route("/channels/{channel_id}/pins", axum::routing::get(messages::get_pinned_messages))
         .route("/channels/{channel_id}/messages", axum::routing::post(messages::create_message))
         .route("/messages/{message_id}", axum::routing::patch(messages::edit_message))
         .route("/messages/{message_id}", axum::routing::delete(messages::delete_message))

@@ -139,6 +139,10 @@ export async function createMessage(channelId: string, content: string): Promise
     });
 }
 
+export async function getPinnedMessages(channelId: string): Promise<Message[]> {
+    return request(`/channels/${channelId}/pins`);
+}
+
 export async function editMessage(messageId: string, content: string) {
     return request(`/messages/${messageId}`, {
         method: "PATCH",

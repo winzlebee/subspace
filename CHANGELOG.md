@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-02-12
+
+- Fix joining servers with a UUID
+- Fix pinning and reacting to messages
+- Fix editing messages
+- Fix deleting messages
+- Add a sidebar for pinned messages
+
 ## [0.3.6] - 2026-02-12
 
 - Fix leaving an instance

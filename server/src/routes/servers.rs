@@ -105,7 +105,7 @@ pub async fn join_server(
 ) -> impl IntoResponse {
     let user = req.extensions().get::<AuthUser>().unwrap().clone();
     match state.db.join_server(&user.user_id, &server_id) {
-        Ok(()) => StatusCode::OK.into_response(),
+        Ok(()) => StatusCode::NO_CONTENT.into_response(),
         Err(e) => {
             tracing::error!("Failed to join server: {e}");
             StatusCode::INTERNAL_SERVER_ERROR.into_response()
