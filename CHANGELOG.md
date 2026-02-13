@@ -9,7 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
-- Member and channel list are now resizable
+## [0.4.4] - 2026-02-14
+
+- Voice chat should now work
 
 ## [0.4.2] - 2026-02-13
 
