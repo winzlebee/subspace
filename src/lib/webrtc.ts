@@ -12,7 +12,13 @@ const STUN_SERVERS = {
 };
 
 let localStream: MediaStream | null = null;
+let localVideoTrack: MediaStreamTrack | null = null;
+let localScreenTrack: MediaStreamTrack | null = null;
 let peerConnections: Record<string, RTCPeerConnection> = {};
+
+export const remoteStreams = writable<Record<string, MediaStream[]>>({});
+export const localVideoStream = writable<MediaStream | null>(null);
+export const localScreenStream = writable<MediaStream | null>(null);
 
 // ── Web Audio API Context ────────────────────────────────────────────────────
 // We use a single global AudioContext for both playback and analysis.
@@ -77,25 +83,50 @@ function handleRemoteStream(userId: string, stream: MediaStream) {
     if (!globalAudioCtx) return;
 
     // Check if we already handle this user
-    if (remoteNodes[userId]) return;
+    // if (remoteNodes[userId]) return; // <-- REMOVED because we might get a second track (video) for the same user
 
     try {
-        const source = globalAudioCtx.createMediaStreamSource(stream);
-        const analyser = globalAudioCtx.createAnalyser();
-        analyser.fftSize = 256;
-        const gain = globalAudioCtx.createGain(); // For muet/unmute or volume
+        // If we don't have an audio node for this user yet, set it up
+        // We only want to pipe AUDIO to the audio context.
+        if (stream.getAudioTracks().length > 0 && !remoteNodes[userId]) {
+            const source = globalAudioCtx.createMediaStreamSource(stream);
+            const analyser = globalAudioCtx.createAnalyser();
+            analyser.fftSize = 256;
+            const gain = globalAudioCtx.createGain(); // For muet/unmute or volume
 
-        // Connect graph: Source -> Analyser -> Gain -> Destination (Speakers)
-        source.connect(analyser);
-        analyser.connect(gain);
-        gain.connect(globalAudioCtx.destination);
+            // Connect graph: Source -> Analyser -> Gain -> Destination (Speakers)
+            source.connect(analyser);
+            analyser.connect(gain);
+            gain.connect(globalAudioCtx.destination);
 
-        remoteNodes[userId] = { source, analyser, gain };
+            remoteNodes[userId] = { source, analyser, gain };
 
-        // Handle stream end
-        stream.onremovetrack = () => {
-            cleanupRemoteUser(userId);
+            // Handle stream end (audio track specifically)
+            stream.getAudioTracks()[0].onended = () => {
+                cleanupRemoteUser(userId);
+            };
+        }
+
+        // Add to remoteStreams store for UI
+        remoteStreams.update(s => {
+            const current = s[userId] || [];
+            if (!current.some(st => st.id === stream.id)) {
+                return { ...s, [userId]: [...current, stream] };
+            }
+            return s;
+        });
+
+        // Handle stream end/empty
+        const onRemove = () => {
+            if (stream.getTracks().length === 0) {
+                remoteStreams.update(s => ({
+                    ...s,
+                    [userId]: (s[userId] || []).filter(st => st.id !== stream.id)
+                }));
+            }
         };
+        stream.addEventListener('removetrack', onRemove);
+
     } catch (e) {
         console.error("Failed to handle remote stream:", e);
     }
@@ -109,6 +140,11 @@ function cleanupRemoteUser(userId: string) {
         gain.disconnect();
         delete remoteNodes[userId];
     }
+    remoteStreams.update(s => {
+        const next = { ...s };
+        delete next[userId];
+        return next;
+    });
 }
 
 function startSpeakingCheckLoop() {
@@ -186,6 +222,14 @@ export function leaveVoice() {
         localStream.getTracks().forEach((t) => t.stop());
         localStream = null;
     }
+    if (localVideoTrack) {
+        localVideoTrack.stop();
+        localVideoTrack = null;
+    }
+    if (localScreenTrack) {
+        localScreenTrack.stop();
+        localScreenTrack = null;
+    }
     stopLocalSpeakingDetection();
 
     // 2. Close all peer connections
@@ -216,6 +260,73 @@ export function toggleDeafen(deafened: boolean) {
     });
 }
 
+export async function toggleVideo(enable: boolean) {
+    if (enable) {
+        if (localVideoTrack) return; // already enabled
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+            localVideoTrack = stream.getVideoTracks()[0];
+            localVideoStream.set(stream);
+
+            // Add track to all peer connections
+            Object.values(peerConnections).forEach(pc => {
+                pc.addTrack(localVideoTrack!, stream); // stream doesn't matter much here but required
+                // Re-negotiation happens automatically via existing logic if we strictly followed it, 
+                // but actually we need to trigger it manually or ensure onnegotiationneeded fires.
+                // Adding a track DOES trigger onnegotiationneeded.
+            });
+
+            // Handle track ending (e.g. user revokes permission or unplug)
+            localVideoTrack.onended = () => toggleVideo(false);
+
+        } catch (e) {
+            console.error("Failed to enable video:", e);
+        }
+    } else {
+        if (localVideoTrack) {
+            localVideoTrack.stop();
+            // Remove from PCs
+            Object.values(peerConnections).forEach(pc => {
+                const sender = pc.getSenders().find(s => s.track === localVideoTrack);
+                if (sender) pc.removeTrack(sender);
+            });
+            localVideoTrack = null;
+            localVideoStream.set(null);
+        }
+    }
+}
+
+export async function toggleScreenShare(enable: boolean) {
+    if (enable) {
+        if (localScreenTrack) return;
+        try {
+            const stream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: false });
+            localScreenTrack = stream.getVideoTracks()[0];
+            localScreenStream.set(stream);
+
+            Object.values(peerConnections).forEach(pc => {
+                pc.addTrack(localScreenTrack!, stream);
+            });
+
+            localScreenTrack.onended = () => toggleScreenShare(false);
+
+        } catch (e) {
+            console.error("Failed to enable screen share:", e);
+            // User probably cancelled the prompt
+        }
+    } else {
+        if (localScreenTrack) {
+            localScreenTrack.stop();
+            Object.values(peerConnections).forEach(pc => {
+                const sender = pc.getSenders().find(s => s.track === localScreenTrack);
+                if (sender) pc.removeTrack(sender);
+            });
+            localScreenTrack = null;
+            localScreenStream.set(null);
+        }
+    }
+}
+
 // ── Internal ─────────────────────────────────────────────────────────────────
 
 async function createPeerConnection(targetUserId: string, initiator: boolean) {
@@ -227,6 +338,14 @@ async function createPeerConnection(targetUserId: string, initiator: boolean) {
     // Add local tracks
     if (localStream) {
         localStream.getTracks().forEach((track) => pc.addTrack(track, localStream!));
+    }
+    if (localVideoTrack) {
+        // Create a dummy stream for the track if we need to, or reuse localStream if possible.
+        // WebRTC tracks are what matters.
+        pc.addTrack(localVideoTrack, new MediaStream([localVideoTrack]));
+    }
+    if (localScreenTrack) {
+        pc.addTrack(localScreenTrack, new MediaStream([localScreenTrack]));
     }
 
     // Handle ICE candidates

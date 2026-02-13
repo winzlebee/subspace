@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.4.2] - 2026-02-13
+
+- Screenshare and video support
+
 ## [0.4.1] - 2026-02-13
 
 - Fix voice chat not working

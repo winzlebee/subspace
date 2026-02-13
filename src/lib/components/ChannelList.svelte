@@ -22,6 +22,7 @@
     joinVoice(channelId);
     wsJoinVoice(channelId);
     voiceChannelId.set(channelId);
+    onSelectChannel(channelId);
 
     // Optimistic update: add current user to voice state immediately
     const user = $currentUser;

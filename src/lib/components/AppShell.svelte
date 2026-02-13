@@ -34,6 +34,7 @@
   import VoiceControls from "./VoiceControls.svelte";
   import UserSettings from "./UserSettings.svelte";
   import CreateServer from "./CreateServer.svelte";
+  import VoiceRoom from "./VoiceRoom.svelte";
 
   let loading = $state(true);
   let initError = $state("");
@@ -256,6 +257,8 @@
     <div class="flex-1 flex flex-col min-w-0 overflow-hidden">
       {#if $currentChannel && $currentChannel.type === "text"}
         <MessageArea />
+      {:else if $currentChannel && $currentChannel.type === "voice"}
+        <VoiceRoom />
       {:else}
         <div
           class="flex-1 flex items-center justify-center text-base-content/40"
