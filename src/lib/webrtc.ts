@@ -37,11 +37,6 @@ export const speakingUsers = writable<Set<string>>(new Set());
 let speakingCheckInterval: ReturnType<typeof setInterval> | null = null;
 const SPEAKING_THRESHOLD = 15; // amplitude threshold for "speaking"
 
-// ── Transceiver Indices (Strict Order) ───────────────────────────────────────
-const TRANSCEIVER_AUDIO_INDEX = 0;
-const TRANSCEIVER_VIDEO_INDEX = 1;
-const TRANSCEIVER_SCREEN_INDEX = 2;
-
 function initAudioContext() {
     if (!globalAudioCtx) {
         globalAudioCtx = new AudioContext();
@@ -87,6 +82,9 @@ function handleRemoteStream(userId: string, stream: MediaStream) {
     if (!globalAudioCtx) initAudioContext();
     if (!globalAudioCtx) return;
 
+    // Check if we already handle this user
+    // if (remoteNodes[userId]) return; // <-- REMOVED because we might get a second track (video) for the same user
+
     try {
         // If we don't have an audio node for this user yet, set it up
         // We only want to pipe AUDIO to the audio context.
@@ -94,7 +92,7 @@ function handleRemoteStream(userId: string, stream: MediaStream) {
             const source = globalAudioCtx.createMediaStreamSource(stream);
             const analyser = globalAudioCtx.createAnalyser();
             analyser.fftSize = 256;
-            const gain = globalAudioCtx.createGain(); // For mute/unmute or volume
+            const gain = globalAudioCtx.createGain(); // For muet/unmute or volume
 
             // Connect graph: Source -> Analyser -> Gain -> Destination (Speakers)
             source.connect(analyser);
@@ -191,18 +189,13 @@ export async function joinVoice(channelId: string) {
         initAudioContext();
 
         // 1. Get local audio
-        try {
-            localStream = await navigator.mediaDevices.getUserMedia({
-                audio: true,
-                video: false,
-            });
-            startLocalSpeakingDetection(localStream);
-        } catch (e) {
-            console.warn("No local audio available/granted:", e);
-            localStream = null;
-        }
+        localStream = await navigator.mediaDevices.getUserMedia({
+            audio: true,
+            video: false,
+        });
 
-        // 2. Start speaking detection (even if failed, logic handles null)
+        // 2. Start speaking detection
+        startLocalSpeakingDetection(localStream);
         startSpeakingCheckLoop();
 
         // 3. Listen for signaling events
@@ -214,8 +207,7 @@ export async function joinVoice(channelId: string) {
 
         for (const state of states) {
             if (state.user_id !== myId) {
-                // For us joining, we initiate connections to existing users
-                createPeerConnection(state.user_id, true);
+                createPeerConnection(state.user_id, true); // true = initiator (offer)
             }
         }
     } catch (e) {
@@ -276,14 +268,12 @@ export async function toggleVideo(enable: boolean) {
             localVideoTrack = stream.getVideoTracks()[0];
             localVideoStream.set(stream);
 
-            // Update all peer connections
+            // Add track to all peer connections
             Object.values(peerConnections).forEach(pc => {
-                const transceivers = pc.getTransceivers();
-                if (transceivers.length > TRANSCEIVER_VIDEO_INDEX) {
-                    const t = transceivers[TRANSCEIVER_VIDEO_INDEX];
-                    t.sender.replaceTrack(localVideoTrack);
-                    t.direction = "sendrecv"; // This triggers negotiation
-                }
+                pc.addTrack(localVideoTrack!, stream); // stream doesn't matter much here but required
+                // Re-negotiation happens automatically via existing logic if we strictly followed it, 
+                // but actually we need to trigger it manually or ensure onnegotiationneeded fires.
+                // Adding a track DOES trigger onnegotiationneeded.
             });
 
             // Handle track ending (e.g. user revokes permission or unplug)
@@ -295,14 +285,10 @@ export async function toggleVideo(enable: boolean) {
     } else {
         if (localVideoTrack) {
             localVideoTrack.stop();
-            // Update PCs
+            // Remove from PCs
             Object.values(peerConnections).forEach(pc => {
-                const transceivers = pc.getTransceivers();
-                if (transceivers.length > TRANSCEIVER_VIDEO_INDEX) {
-                    const t = transceivers[TRANSCEIVER_VIDEO_INDEX];
-                    t.sender.replaceTrack(null);
-                    t.direction = "recvonly"; // Or inactive if we don't want to receive? Keep recvonly for now.
-                }
+                const sender = pc.getSenders().find(s => s.track === localVideoTrack);
+                if (sender) pc.removeTrack(sender);
             });
             localVideoTrack = null;
             localVideoStream.set(null);
@@ -319,29 +305,21 @@ export async function toggleScreenShare(enable: boolean) {
             localScreenStream.set(stream);
 
             Object.values(peerConnections).forEach(pc => {
-                const transceivers = pc.getTransceivers();
-                if (transceivers.length > TRANSCEIVER_SCREEN_INDEX) {
-                    const t = transceivers[TRANSCEIVER_SCREEN_INDEX];
-                    t.sender.replaceTrack(localScreenTrack);
-                    t.direction = "sendrecv";
-                }
+                pc.addTrack(localScreenTrack!, stream);
             });
 
             localScreenTrack.onended = () => toggleScreenShare(false);
 
         } catch (e) {
             console.error("Failed to enable screen share:", e);
+            // User probably cancelled the prompt
         }
     } else {
         if (localScreenTrack) {
             localScreenTrack.stop();
             Object.values(peerConnections).forEach(pc => {
-                const transceivers = pc.getTransceivers();
-                if (transceivers.length > TRANSCEIVER_SCREEN_INDEX) {
-                    const t = transceivers[TRANSCEIVER_SCREEN_INDEX];
-                    t.sender.replaceTrack(null);
-                    t.direction = "recvonly";
-                }
+                const sender = pc.getSenders().find(s => s.track === localScreenTrack);
+                if (sender) pc.removeTrack(sender);
             });
             localScreenTrack = null;
             localScreenStream.set(null);
@@ -357,26 +335,17 @@ async function createPeerConnection(targetUserId: string, initiator: boolean) {
     const pc = new RTCPeerConnection(STUN_SERVERS);
     peerConnections[targetUserId] = pc;
 
-    // ── Transceivers ──
-    // 1. Audio
-    if (localStream && localStream.getAudioTracks().length > 0) {
-        pc.addTransceiver(localStream.getAudioTracks()[0], { direction: 'sendrecv', streams: [localStream] });
-    } else {
-        pc.addTransceiver('audio', { direction: 'recvonly' });
+    // Add local tracks
+    if (localStream) {
+        localStream.getTracks().forEach((track) => pc.addTrack(track, localStream!));
     }
-
-    // 2. Video (Camera)
     if (localVideoTrack) {
-        pc.addTransceiver(localVideoTrack, { direction: 'sendrecv', streams: [new MediaStream([localVideoTrack])] });
-    } else {
-        pc.addTransceiver('video', { direction: 'recvonly' });
+        // Create a dummy stream for the track if we need to, or reuse localStream if possible.
+        // WebRTC tracks are what matters.
+        pc.addTrack(localVideoTrack, new MediaStream([localVideoTrack]));
     }
-
-    // 3. Video (Screen)
     if (localScreenTrack) {
-        pc.addTransceiver(localScreenTrack, { direction: 'sendrecv', streams: [new MediaStream([localScreenTrack])] });
-    } else {
-        pc.addTransceiver('video', { direction: 'recvonly' });
+        pc.addTrack(localScreenTrack, new MediaStream([localScreenTrack]));
     }
 
     // Handle ICE candidates
@@ -399,22 +368,18 @@ async function createPeerConnection(targetUserId: string, initiator: boolean) {
         }
     };
 
-    // Negotiation logic
-    let makingOffer = false;
-
-    pc.onnegotiationneeded = async () => {
-        try {
-            makingOffer = true;
-            await pc.setLocalDescription();
-            if (pc.localDescription) {
-                wsSignalSdp(targetUserId, JSON.stringify(pc.localDescription), pc.localDescription.type);
+    // Negotiation needed (only for initiator)
+    if (initiator) {
+        pc.onnegotiationneeded = async () => {
+            try {
+                const offer = await pc.createOffer();
+                await pc.setLocalDescription(offer);
+                wsSignalSdp(targetUserId, JSON.stringify(offer), "offer");
+            } catch (e) {
+                console.error("Negotiation error:", e);
             }
-        } catch (e) {
-            console.error("Negotiation error:", e);
-        } finally {
-            makingOffer = false;
-        }
-    };
+        };
+    }
 
     return pc;
 }
@@ -431,54 +396,31 @@ async function handleSignal(event: CustomEvent) {
         const { from_user_id, target_user_id, sdp, sdp_type } = payload;
 
         if (target_user_id !== myId) return;
+        console.log(`Received SDP ${sdp_type} from ${from_user_id}`);
 
         let pc = peerConnections[from_user_id];
+
         if (!pc) {
+            if (sdp_type === "answer") {
+                console.warn(`Ignoring answer from ${from_user_id} - no local connection`);
+                return;
+            }
             pc = await createPeerConnection(from_user_id, false);
         }
 
         try {
-            const description = { type: sdp_type, sdp: JSON.parse(sdp).sdp };
-
-            // Polite Peer Pattern
-            // We use string comparison of IDs to determine politeness (convention)
-            const polite = myId < from_user_id;
-
-            // Check for collision
-            const collision = description.type === "offer" &&
-                pc.signalingState !== "stable";
-
-            // Ignore offer if we are impolite and have a collision
-            if (collision && !polite) {
-                console.log(`Ignoring collision offer from ${from_user_id} (impolite)`);
+            if (sdp_type === "answer" && pc.signalingState !== "have-local-offer") {
+                console.warn(`Ignoring answer from ${from_user_id} - state is ${pc.signalingState}`);
                 return;
             }
 
-            // Rollback if we are polite and have a collision
-            // Note: implicit rollback is standard in recent WebRTC specs but explicit might be safer if supported
-            // Using standard setRemoteDescription which handles implicit rollback in 'perfect negotiation' pattern
-            // if implementd correctly. However, strict Perfect Negotiation usually does:
-            // if (collision) {
-            //    await Promise.all([
-            //      pc.setLocalDescription({ type: "rollback" }),
-            //      pc.setRemoteDescription(description)
-            //    ]);
-            // } 
-            // But basic 'setRemoteDescription' usually works if 'stable'.
+            const descObj = JSON.parse(sdp);
+            await pc.setRemoteDescription(descObj);
 
-            if (collision && polite) {
-                console.log(`Rolling back due to collision with ${from_user_id} (polite)`);
-                // Some browsers require explicit rollback
-                await pc.setLocalDescription({ type: "rollback" });
-            }
-
-            await pc.setRemoteDescription(description as RTCSessionDescriptionInit);
-
-            if (description.type === "offer") {
-                await pc.setLocalDescription();
-                if (pc.localDescription) {
-                    wsSignalSdp(from_user_id, JSON.stringify(pc.localDescription), "answer");
-                }
+            if (sdp_type === "offer") {
+                const answer = await pc.createAnswer();
+                await pc.setLocalDescription(answer);
+                wsSignalSdp(from_user_id, JSON.stringify(answer), "answer");
             }
         } catch (e) {
             console.error("SDP error:", e);
@@ -493,14 +435,10 @@ async function handleSignal(event: CustomEvent) {
         const pc = peerConnections[from_user_id];
         if (pc) {
             try {
-                // Ensure we are ready for candidates
-                // Logic: add candidate even if remote description is not set yet? 
-                // WebRTC stacks usually handle buffering, or we can check signalingState.
-                // However, 'transceiver' approach is much more stable.
                 const candObj = JSON.parse(candidate);
                 await pc.addIceCandidate(candObj);
             } catch (e) {
-                console.error("ICE error:", e); // Often ignores if remote desc not set yet, which is fine, we can buffer if needed.
+                console.error("ICE error:", e);
             }
         }
     }

@@ -7,12 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
-## [0.4.3] - 2026-02-13
-
 ### Added
 
 - Member and channel list are now resizable
-- Fix WebRTC negotation not being friendly
 
 ## [0.4.2] - 2026-02-13
 
