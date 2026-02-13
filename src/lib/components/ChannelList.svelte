@@ -22,9 +22,52 @@
     voiceChannelId.set(channelId);
     onSelectChannel(channelId);
   }
+
+  // Resize logic
+  let width = $state(240); // default w-60
+  let isResizing = $state(false);
+
+  function startResize(e: MouseEvent) {
+    e.preventDefault(); // Prevent text selection
+    isResizing = true;
+    window.addEventListener("mousemove", handleMouseMove);
+    window.addEventListener("mouseup", stopResize);
+    document.body.style.userSelect = "none";
+    document.body.style.cursor = "col-resize";
+  }
+
+  function handleMouseMove(e: MouseEvent) {
+    if (!isResizing) return;
+    // Server sidebar is 72px wide
+    // Channel list starts at 72px
+    // Width = mouse X - 72
+    const newWidth = e.clientX - 72;
+    if (newWidth > 150 && newWidth < 600) {
+      width = newWidth;
+    }
+  }
+
+  function stopResize() {
+    isResizing = false;
+    window.removeEventListener("mousemove", handleMouseMove);
+    window.removeEventListener("mouseup", stopResize);
+    document.body.style.userSelect = "";
+    document.body.style.cursor = "";
+  }
 </script>
 
-<div class="flex flex-col w-60 bg-base-200 shrink-0 overflow-hidden">
+<div
+  class="flex flex-col bg-base-200 shrink-0 overflow-hidden relative group/sidebar"
+  style="width: {width}px"
+>
+  <!-- Drag Handle -->
+  <!-- svelte-ignore a11y_no_static_element_interactions -->
+  <div
+    class="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-primary/50 transition-colors z-50 opacity-0 group-hover/sidebar:opacity-100 {isResizing
+      ? '!bg-primary !opacity-100'
+      : ''}"
+    onmousedown={startResize}
+  ></div>
   <!-- Server name header -->
   <div
     class="h-12 flex items-center justify-between px-4 shadow-md bg-base-200 border-b border-base-300 hover:bg-base-300 transition-colors cursor-pointer group"
