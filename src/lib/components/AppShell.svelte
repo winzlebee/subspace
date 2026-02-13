@@ -22,9 +22,8 @@
     showSettings,
     showCreateServer,
     voiceChannelId,
-    authToken,
   } from "$lib/stores";
-
+  import { toasts, addToast } from "$lib/stores/toasts";
   import { APP_NAME } from "$lib/config";
 
   import ServerSidebar from "./ServerSidebar.svelte";
@@ -35,43 +34,14 @@
   import UserSettings from "./UserSettings.svelte";
   import CreateServer from "./CreateServer.svelte";
   import VoiceRoom from "./VoiceRoom.svelte";
+  import NoChannelSelected from "./NoChannelSelected.svelte";
 
   let loading = $state(true);
   let initError = $state("");
 
-  // Server setup
-  let needsSetup = $state(false);
-  let setupUrl = $state("http://localhost:3001");
-  let setupTesting = $state(false);
-  let setupError = $state("");
-
   // Mobile responsive toggles
   let showMobileSidebar = $state(false);
   let showMobileMembers = $state(false);
-
-  // Toast notifications
-  let toasts: Array<{
-    id: number;
-    message: string;
-    type: "error" | "success" | "info";
-  }> = $state([]);
-  let toastCounter = 0;
-
-  function addToast(
-    message: string,
-    type: "error" | "success" | "info" = "error",
-  ) {
-    const id = ++toastCounter;
-    toasts = [...toasts, { id, message, type }];
-    setTimeout(() => {
-      toasts = toasts.filter((t) => t.id !== id);
-    }, 4000);
-  }
-
-  // Expose globally for other components to use
-  if (typeof window !== "undefined") {
-    (window as any).__subspace_toast = addToast;
-  }
 
   onMount(() => {
     initApp();
@@ -260,27 +230,7 @@
       {:else if $currentChannel && $currentChannel.type === "voice"}
         <VoiceRoom />
       {:else}
-        <div
-          class="flex-1 flex items-center justify-center text-base-content/40"
-        >
-          <div class="text-center">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              class="h-16 w-16 mx-auto mb-4 opacity-30"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="1.5"
-                d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
-              />
-            </svg>
-            <p class="text-lg">Select a text channel to start chatting</p>
-          </div>
-        </div>
+        <NoChannelSelected />
       {/if}
 
       <!-- Voice controls bar (when in voice) -->
@@ -320,9 +270,9 @@
 {/if}
 
 <!-- Toast notifications -->
-{#if toasts.length > 0}
+{#if $toasts.length > 0}
   <div class="toast toast-end toast-bottom z-[100]">
-    {#each toasts as toast (toast.id)}
+    {#each $toasts as toast (toast.id)}
       <div
         class="alert shadow-lg {toast.type === 'error'
           ? 'alert-error'

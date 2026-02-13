@@ -246,8 +246,6 @@
     }
 
     async function handleReaction(msgId: string) {
-        // TODO: For now we just show a text prompt. Eventually, we'll add an emoji picker
-
         const emoji = prompt("Enter an emoji:");
 
         if (!emoji) {
@@ -257,27 +255,7 @@
         const msg = $messages.find((m) => m.id === msgId);
 
         try {
-            // Send the reaction websocket message first
             await addReaction(msgId, emoji);
-
-            // Optimistically add the emoji - feels a lot more responsive.
-            messages.update((msgs) =>
-                msgs.map((m) => {
-                    if (m.id !== msgId) return m;
-                    // Clone reactions
-                    const reactions = [...(m.reactions || [])];
-                    const existing = reactions.find((r) => r.emoji === emoji);
-                    if (existing) {
-                        if (!existing.me) {
-                            existing.count++;
-                            existing.me = true;
-                        }
-                    } else {
-                        reactions.push({ emoji, count: 1, me: true });
-                    }
-                    return { ...m, reactions };
-                }),
-            );
         } catch (e) {
             console.error("Reaction error:", e);
         }
@@ -482,7 +460,14 @@
                                 <div class="flex flex-wrap gap-1 mt-1">
                                     {#each msg.reactions as reaction}
                                         <button
-                                            class="badge badge-sm badge-ghost gap-1 cursor-pointer hover:bg-primary/20 transition-colors"
+                                            class="badge badge-sm badge-ghost gap-1 cursor-pointer hover:bg-primary/40 {reaction.me
+                                                ? 'bg-primary/20'
+                                                : ''} transition-colors"
+                                            onclick={() =>
+                                                removeReaction(
+                                                    msg.id,
+                                                    reaction.emoji,
+                                                )}
                                         >
                                             {reaction.emoji}
                                             {reaction.count}

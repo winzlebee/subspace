@@ -6,8 +6,6 @@
     currentChannelId,
     voiceChannelId,
     voiceStates,
-    currentUser,
-    currentServerId,
   } from "$lib/stores";
   import { wsJoinVoice } from "$lib/ws";
   import { joinVoice, speakingUsers } from "$lib/webrtc";
@@ -23,30 +21,6 @@
     wsJoinVoice(channelId);
     voiceChannelId.set(channelId);
     onSelectChannel(channelId);
-
-    // Optimistic update: add current user to voice state immediately
-    const user = $currentUser;
-    if (user) {
-      voiceStates.update((vs) => {
-        const existing = vs[channelId] || [];
-        if (existing.some((s) => s.user_id === user.id)) return vs;
-        return {
-          ...vs,
-          [channelId]: [
-            ...existing,
-            {
-              user_id: user.id,
-              channel_id: channelId,
-              muted: false,
-              deafened: false,
-              joined_at: new Date().toISOString(),
-              username: user.username,
-              avatar_url: user.avatar_url,
-            },
-          ],
-        };
-      });
-    }
   }
 </script>
 
