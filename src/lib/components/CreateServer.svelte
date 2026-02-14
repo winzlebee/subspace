@@ -42,6 +42,8 @@
             disconnectWs();
             connectWs();
 
+            onCreated(inviteCode.trim());
+
             showCreateServer.set(false);
         } catch (e: any) {
             error = e.message;
