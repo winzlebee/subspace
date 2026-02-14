@@ -13,7 +13,7 @@ pub struct TurnConfig {
 pub async fn get_turn_credentials(
     State(_state): State<Arc<AppState>>,
 ) -> Json<TurnConfig> {
-    let username = std::env::var("TURN_USERNAME").unwrap_or("subspace");
+    let username = std::env::var("TURN_USERNAME").unwrap_or("subspace".to_string());
     let password = std::env::var("TURN_PASSWORD").expect("TURN_PASSSWORD must be set");
     
     let uris = match std::env::var("TURN_URL") {
