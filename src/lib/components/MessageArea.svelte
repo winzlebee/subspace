@@ -131,6 +131,24 @@
         }
     }
 
+    function isOnlyEmojis(str: string): boolean {
+        if (!str) return false;
+        // Check if string contains only emojis and whitespace
+        // Using \p{Extended_Pictographic} which covers most modern emojis
+        // and \p{Emoji_Presentation} for things like ☺️
+        try {
+            const regex =
+                /^(\p{Extended_Pictographic}|\p{Emoji_Presentation}|\s)+$/u;
+            return (
+                regex.test(str) &&
+                /\p{Extended_Pictographic}|\p{Emoji_Presentation}/u.test(str)
+            );
+        } catch (e) {
+            // Fallback for older environments if needed
+            return false;
+        }
+    }
+
     // Scroll to bottom when messages change
     $effect(() => {
         if ($messages) {
@@ -440,7 +458,9 @@
 
                             <!-- Content with markdown rendering -->
                             <div
-                                class="text-sm text-base-content/90 whitespace-pre-wrap break-words prose prose-sm max-w-none prose-a:text-primary prose-img:rounded-lg prose-img:max-w-md prose-img:max-h-80 prose-img:mt-2 prose-img:mb-1"
+                                class="{isOnlyEmojis(msg.content ?? '')
+                                    ? 'text-4xl leading-relaxed'
+                                    : 'text-sm text-base-content/90 prose prose-sm max-w-none prose-a:text-primary prose-img:rounded-lg prose-img:max-w-md prose-img:max-h-80 prose-img:mt-2 prose-img:mb-1'} whitespace-pre-wrap break-words"
                             >
                                 {#if msg.content}
                                     {@html renderMarkdown(msg.content)}
@@ -551,7 +571,9 @@
                                 </span>
                             {/if}
                             <div
-                                class="text-sm text-base-content/90 whitespace-pre-wrap break-words prose prose-sm max-w-none prose-a:text-primary prose-img:rounded-lg prose-img:max-w-md prose-img:max-h-80 prose-img:mt-2 prose-img:mb-1"
+                                class="{isOnlyEmojis(msg.content ?? '')
+                                    ? 'text-4xl leading-relaxed'
+                                    : 'text-sm text-base-content/90 prose prose-sm max-w-none prose-a:text-primary prose-img:rounded-lg prose-img:max-w-md prose-img:max-h-80 prose-img:mt-2 prose-img:mb-1'} whitespace-pre-wrap break-words"
                             >
                                 {#if msg.content}
                                     {@html renderMarkdown(msg.content)}

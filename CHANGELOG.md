@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.5.1] - 2026-02-14
+
+- Add emoji keyboard
+- Emoji-only messages render larger than regular messages
+
 ## [0.5.0] - 2026-02-14
 
 - Fix message pinning (done by me as claude can't figure it out)
