@@ -8,6 +8,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 
+## [0.6.0] - 2026-02-15
+
+### Fixed
+
+- Fix database persistence in Docker deployments by using DATABASE_URL environment variable
+- Fix port configuration inconsistencies (server now consistently uses port 3001)
+- Remove unused PORT environment variable from Dockerfile
+
+### Changed
+
+- Update Dockerfile to use correct working directory and volume paths
+- Add UPLOAD_DIR environment variable for configurable upload directory
+- Clean up docker-compose files to remove unused port 8080 mapping
+
+### Documentation
+
+- Fix nginx reverse proxy configuration to use correct port 3001
+- Add comprehensive environment variables documentation
+- Add data persistence section explaining Docker volume usage
+- Add Portainer stack deployment instructions
+- Remove documentation for non-existent config.toml and LetMeIn features
+
+
 ## [0.5.9] (Client only) - 2026-02-15
 
 - Fix join server not refreshing the server list

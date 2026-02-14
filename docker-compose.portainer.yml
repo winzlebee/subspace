@@ -2,17 +2,21 @@ version: '3.8'
 
 services:
   subspace:
-    image: winzlebee/subspace:latest
+    image: ghcr.io/winzlebee/subspace/server:latest
     container_name: subspace
-    restart: always
+    restart: unless-stopped
     ports:
       - "3001:3001"
     volumes:
-      - ./data:/app/data
-      - ./uploads:/app/uploads
+      # Mount the named volume to the correct path where the app stores data
+      - subspace_data:/app/data
+      # Also mount uploads directory to persist uploaded files
+      - subspace_uploads:/app/uploads
+    env_file:
+      - stack.env
     environment:
       - TURN_PASSWORD=${TURN_PASSWORD:-password}
-      - TURN_URL=${TURN_URL:-}
+      # Ensure the database path matches the volume mount
       - DATABASE_URL=/app/data/subspace.db
       - UPLOAD_DIR=/app/uploads
       - BIND_ADDR=0.0.0.0:3001
@@ -22,6 +26,8 @@ services:
     container_name: subspace-turn
     restart: always
     network_mode: "host"
+    env_file:
+      - stack.env
     environment:
       - TURN_PASSWORD=${TURN_PASSWORD:-password}
     command:
@@ -35,4 +41,12 @@ services:
       - --fingerprint
       - --no-cli
     volumes:
-      - ./turn-data:/var/lib/coturn
+      - turn_data:/var/lib/coturn
+
+volumes:
+  subspace_data:
+    driver: local
+  subspace_uploads:
+    driver: local
+  turn_data:
+    driver: local

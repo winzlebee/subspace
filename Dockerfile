@@ -17,7 +17,7 @@ RUN apt-get update && apt-get install -y \
     libsqlite3-0 \
     && rm -rf /var/lib/apt/lists/*
 
-WORKDIR /usr/local/bin
+WORKDIR /app
 
 # Copy the binary from builder
 COPY --from=builder /usr/src/app/target/release/server .
@@ -25,13 +25,16 @@ COPY --from=builder /usr/src/app/target/release/server .
 # Copy the schema for initial setup if needed (database initialization)
 # usage of schema.sql depends on how db.rs references it (include_str! embeds it, so no need to copy)
 
-# Create a directory for sqlite db
-RUN mkdir -p /data
-ENV DATABASE_URL=/data/subspace.db
-ENV PORT=3000
+# Create directories for data and uploads
+RUN mkdir -p /app/data /app/uploads
+
+# Set environment variables
+ENV DATABASE_URL=/app/data/subspace.db
+ENV UPLOAD_DIR=/app/uploads
+ENV BIND_ADDR=0.0.0.0:3001
 
 # Expose the server port
-EXPOSE 3000
+EXPOSE 3001
 
 # Run the server
 CMD ["./server"]

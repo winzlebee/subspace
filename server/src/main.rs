@@ -23,11 +23,12 @@ async fn main() {
         .init();
 
     // Initialise database
-    let db = db::Database::new("subspace.db").expect("Failed to initialise database");
+    let db_path = std::env::var("DATABASE_URL").unwrap_or_else(|_| "subspace.db".into());
+    let db = db::Database::new(&db_path).expect("Failed to initialise database");
     db.run_migrations().expect("Failed to run migrations");
 
     // Ensure uploads directory exists
-    let upload_dir = "uploads".to_string();
+    let upload_dir = std::env::var("UPLOAD_DIR").unwrap_or_else(|_| "uploads".into());
     std::fs::create_dir_all(&upload_dir).expect("Failed to create uploads directory");
 
     let state = Arc::new(AppState {

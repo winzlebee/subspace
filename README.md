@@ -63,6 +63,20 @@ docker compose up -d
 > The TURN server requires specific ports (3478 UDP/TCP) to be open and accessible.
 > Please make sure you set the `TURN_PASSWORD` environment variable. This provides basic protection against unauthenticated users hogging your TURN server's bandwidth or using it for traffic amplification.
 
+### Portainer Stack Deployment
+
+If you're using Portainer, you can use the `docker-compose.portainer.yml` file as a stack:
+
+1. In Portainer, go to **Stacks** → **Add stack**
+2. Name your stack (e.g., "subspace")
+3. Copy the contents of `docker-compose.portainer.yml` into the web editor
+4. Under **Environment variables**, add:
+   - `TURN_PASSWORD` - Generate a secure password (e.g., using `openssl rand -base64 32`)
+5. Optionally add `TURN_URL` if using a custom TURN server
+6. Deploy the stack
+
+The stack uses named volumes (`subspace_data`, `subspace_uploads`, `turn_data`) which will persist your data across container updates and restarts.
+
 ### Reverse Proxy (Nginx)
 
 Since Subspace uses WebSockets, your reverse proxy must be configured to handle connection upgrades.
@@ -73,33 +87,48 @@ server {
     server_name your.domain.com;
 
     location / {
-        proxy_pass http://localhost:8080;
+        proxy_pass http://localhost:3001;
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection "upgrade";
         proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
     }
 }
 ```
+
+> [!NOTE]
+> The Subspace server listens on port **3001** by default. Make sure your reverse proxy points to this port.
 
 ### TURN over TLS
 
 If you expect users to connect from heavily restricted networks that only allow HTTPS traffic, you need to configure coturn to use TLS. 
 This is currently unimplemented, but if there is enough interest I'll add support for this.
 
-## Configuration
+## Environment Variables
 
-The configuration file for the server is generated on first run, and is located at `data/config.toml`. 
+The server can be configured using the following environment variables:
 
-### LetMeIn
+- **`DATABASE_URL`** - Path to the SQLite database file (default: `subspace.db`, Docker: `/app/data/subspace.db`)
+- **`UPLOAD_DIR`** - Directory for uploaded files (default: `uploads`, Docker: `/app/uploads`)
+- **`BIND_ADDR`** - Address and port to bind the server to (default: `0.0.0.0:3001`)
+- **`JWT_SECRET`** - Secret key for JWT token generation (default: `dev-secret-change-me` - **change this in production!**)
+- **`TURN_PASSWORD`** - Password for the TURN server (required for WebRTC)
+- **`TURN_URL`** - Custom TURN server URL (optional, e.g., `turn:turn.example.com:3478`)
+- **`TURN_USERNAME`** - Username for TURN authentication (default: `subspace`)
 
-To restrict access, the `[letmein]` section is automatically configured with `enabled = true` on first run. This is critical for security as mentioned in the warnings above. 
+> [!IMPORTANT]
+> Make sure to set a strong `JWT_SECRET` in production environments. This is used to sign authentication tokens.
 
-To begin with, this means nobody can join the server. Not even you. You can add yourself to the list of instance administrators after registering under the `instance_admins = []` field in the config file. Note that this takes UUID strings, not usernames. You can find your UUID in your user settings.
+## Data Persistence
 
-As users join the server, they'll initially get a message saying that they're not allowed in and to wait for 'someone' to let them in. They can be let in by an instance admin using the 'Let Me In' button in the instance admin panel under 'Users waiting to get let in', which is only visible to instance admins. Before they do this, the user will be unable to do anything and we'll reject any API call they try to make. 
+When running with Docker, your data is stored in volumes:
+- **Database**: Mounted at `/app/data` - contains `subspace.db` with all users, servers, channels, and messages
+- **Uploads**: Mounted at `/app/uploads` - contains user-uploaded files and attachments
 
-If you'd like anyone to be able to connect to the server **Not recommended**, you can set `enabled = false` in the config file. The entire letmein system will be disabled, and anyone will be able to register to join the server. 
+Make sure these volumes are properly configured to persist data across container restarts.
 
 ## Technologies and Notes
 
