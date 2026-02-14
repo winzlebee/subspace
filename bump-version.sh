@@ -39,7 +39,8 @@ cargo check
 
 echo "Done! Version bumped to $NEW_VERSION across all files."
 echo "Committing version bump..."
-git commit -am "Bump version to v$NEW_VERSION"
+git add -A
+git commit -m "Bump version to v$NEW_VERSION"
 
 echo "Tagging v$NEW_VERSION..."
 git tag "v$NEW_VERSION"

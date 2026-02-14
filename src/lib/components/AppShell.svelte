@@ -139,6 +139,15 @@
           Retry
         </button>
         <button
+          class="btn btn-secondary btn-sm"
+          onclick={() => {
+            localStorage.removeItem("token");
+            location.reload();
+          }}
+        >
+          Login Again
+        </button>
+        <button
           class="btn btn-ghost btn-sm"
           onclick={() => {
             clearServerUrl();
@@ -207,6 +216,7 @@
       <div
         class="md:hidden fixed inset-0 bg-black/50 z-30"
         onclick={() => (showMobileSidebar = false)}
+        role="button"
       ></div>
       <div class="md:hidden fixed left-0 top-0 bottom-0 z-30 flex">
         <ServerSidebar onSelectServer={selectServer} />
@@ -252,6 +262,7 @@
       <div
         class="md:hidden fixed inset-0 bg-black/50 z-30"
         onclick={() => (showMobileMembers = false)}
+        role="button"
       ></div>
       <div class="md:hidden fixed right-0 top-0 bottom-0 z-30">
         <MemberList />

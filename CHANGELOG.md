@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.4.7] - 2026-02-14
+
+- Add 'Login Again' on a 404 error when a token for a server in local storage is no longer valid
+- Remove redundant second 'Join Server' button
+- Remove the 'Home' button that does nothing for now. Later we can add a DM feature that will use this
+
 ## [0.4.5] - 2026-02-14
 
 - Add mandatory TURN server for WebRTC connection
