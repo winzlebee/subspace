@@ -11,12 +11,8 @@ async function getIceServers(): Promise<RTCConfiguration> {
 
     // Gets the base server hostname minus any port or leading protocol information. 
     // We can use this to get the TURN server URL
-    const hostname = serverUrl.replace(/^https?:\/\//, "").split(":")[0];
+    const hostname = serverUrl.replace(/^https?:\/\//, "").split(":")[0].split("/")[0];
 
-    if (!hostname) {
-        // We really need a hostname to get further here. So don't worry about trying any connection if there is no TURN server.
-        throw new Error("Could not determine hostname from server URL");
-    }
 
     try {
         // Get the credentials for the TURN server from the subspace instance.
@@ -29,16 +25,15 @@ async function getIceServers(): Promise<RTCConfiguration> {
             turnUrls = [`turn:${hostname}:3478`];
         }
 
+        console.log("Connecting to WebRTC via TURN servers: ", turnUrls);
+
         return {
             iceServers: [
                 {
                     urls: turnUrls,
                     username: creds.username,
                     credential: creds.credential,
-                },
-                {
-                    urls: `stun:${hostname}:3478`,
-                },
+                }
             ],
         };
     } catch (error) {
@@ -427,6 +422,17 @@ async function createPeerConnection(targetUserId: string, initiator: boolean) {
             }
         };
     }
+
+    pc.oniceconnectionstatechange = () => {
+        console.log(`ICE Connection State (${targetUserId}):`, pc.iceConnectionState);
+        if (pc.iceConnectionState === "failed") {
+            console.error("ICE connection failed. Verify TURN configuration.");
+        }
+    };
+
+    pc.onicegatheringstatechange = () => {
+        console.log(`ICE Gathering State (${targetUserId}):`, pc.iceGatheringState);
+    };
 
     return pc;
 }
