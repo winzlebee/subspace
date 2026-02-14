@@ -8,6 +8,7 @@
     getServerMembers,
     getMessages,
     clearServerUrl,
+    getPinnedMessages,
   } from "$lib/api";
   import {
     currentUser,
@@ -18,6 +19,7 @@
     currentChannelId,
     currentChannel,
     messages,
+    pinnedMessages,
     members,
     showSettings,
     showCreateServer,
@@ -84,6 +86,7 @@
       } else {
         currentChannelId.set(null);
         messages.set([]);
+        pinnedMessages.set([]);
       }
     } catch (e: any) {
       addToast("Failed to load server data");

@@ -1,4 +1,6 @@
 <script lang="ts">
+    import { pinnedMessages } from "$lib/stores";
+
     import { onMount } from "svelte";
     import { getPinnedMessages, unpinMessage } from "$lib/api";
     import { type Message } from "$lib/types";
@@ -10,14 +12,12 @@
         onClose: () => void;
     }>();
 
-    let pins = $state<Message[]>([]);
     let loading = $state(true);
 
     onMount(async () => {
         loadPins();
     });
 
-    // Reload when channelId changes
     $effect(() => {
         if (channelId) loadPins();
     });
@@ -25,7 +25,7 @@
     async function loadPins() {
         loading = true;
         try {
-            pins = await getPinnedMessages(channelId);
+            pinnedMessages.set(await getPinnedMessages(channelId));
         } catch (e) {
             console.error(e);
         } finally {
@@ -36,20 +36,14 @@
     async function handleUnpin(msgId: string) {
         try {
             await unpinMessage(msgId);
-            pins = pins.filter((p) => p.id !== msgId);
         } catch (e) {
             console.error(e);
         }
     }
 
-    // Configure marked for text-only/safe rendering if needed, or just use basic
-    // For pins, we might want a simpler view.
     function renderContent(content: string) {
-        if (!content) return "";
-        // Simple render, strip some markdown or render it?
-        // Let's render it but limit height in CSS
         try {
-            return marked.parseInline(content); // Use parseInline to avoid block blocks if desired
+            return marked.parseInline(content);
         } catch {
             return content;
         }
@@ -91,17 +85,8 @@
             <div class="flex justify-center py-8">
                 <span class="loading loading-spinner text-primary"></span>
             </div>
-        {:else if pins.length === 0}
-            <div
-                class="flex flex-col items-center justify-center py-12 text-base-content/40 gap-2 text-center"
-            >
-                <span class="text-4xl">📌</span>
-                <span class="text-sm"
-                    >No pinned messages in this channel yet.</span
-                >
-            </div>
         {:else}
-            {#each pins as pin (pin.id)}
+            {#each $pinnedMessages as pin (pin.id)}
                 <div
                     class="bg-base-200/50 rounded-lg p-3 text-sm group relative hover:bg-base-200 transition-colors border border-transparent hover:border-base-300"
                 >
@@ -163,6 +148,15 @@
                     >
                         ✕
                     </button>
+                </div>
+            {:else}
+                <div
+                    class="flex flex-col items-center justify-center py-12 text-base-content/40 gap-2 text-center"
+                >
+                    <span class="text-4xl">📌</span>
+                    <span class="text-sm"
+                        >No pinned messages in this channel yet.</span
+                    >
                 </div>
             {/each}
         {/if}

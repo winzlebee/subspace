@@ -6,6 +6,7 @@
         typingUsers,
         currentChannelId,
         members,
+        pinnedMessages,
     } from "$lib/stores";
     import {
         createMessage,
@@ -222,12 +223,6 @@
     }
 
     async function togglePin(msg: { id: string; pinned: boolean }) {
-        // Optimistic update
-        messages.update((msgs) =>
-            msgs.map((m) =>
-                m.id === msg.id ? { ...m, pinned: !msg.pinned } : m,
-            ),
-        );
         try {
             if (msg.pinned) {
                 await unpinMessage(msg.id);
@@ -235,13 +230,7 @@
                 await pinMessage(msg.id);
             }
         } catch (e) {
-            // The message failed to pin - so revert it back to how it was.
             console.error("Pin toggle error:", e);
-            messages.update((msgs) =>
-                msgs.map((m) =>
-                    m.id === msg.id ? { ...m, pinned: msg.pinned } : m,
-                ),
-            );
         }
     }
 
@@ -266,6 +255,7 @@
         try {
             await deleteMessage(msgId);
             messages.update((msgs) => msgs.filter((m) => m.id !== msgId));
+            pinnedMessages.update((pins) => pins.filter((p) => p.id !== msgId));
         } catch (e) {
             console.error("Delete error:", e);
         }

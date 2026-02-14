@@ -34,6 +34,7 @@ export const voiceChannels = derived(channels, ($c) => $c.filter((c) => c.type =
 
 // ── Messages ─────────────────────────────────────────────────────────
 export const messages = writable<Message[]>([]);
+export const pinnedMessages = writable<Message[]>([]);
 
 // ── Members ──────────────────────────────────────────────────────────
 export const members = writable<ServerMember[]>([]);
@@ -82,6 +83,7 @@ export function logout() {
     servers.set([]);
     channels.set([]);
     messages.set([]);
+    pinnedMessages.set([]);
     members.set([]);
     currentServerId.set(null);
     currentChannelId.set(null);

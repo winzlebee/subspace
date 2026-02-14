@@ -41,12 +41,23 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
         ...options,
         headers: { ...getHeaders(), ...(options.headers || {}) },
     });
+
     if (!res.ok) {
         const body = await res.text();
         throw new Error(`HTTP ${res.status}: ${body}`);
     }
-    if (res.status === 204) return undefined as unknown as T;
-    return res.json();
+
+    if (res.status === 204) {
+        return undefined as unknown as T;
+    }
+
+    const text = await res.text();
+
+    if (!text) {
+        return undefined as unknown as T;
+    }
+
+    return JSON.parse(text);
 }
 
 // ── Auth ─────────────────────────────────────────────────────────────

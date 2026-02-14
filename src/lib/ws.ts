@@ -1,5 +1,5 @@
 import { get } from "svelte/store";
-import { authToken, currentUser, currentChannelId, currentServerId, messages, voiceStates, voiceChannelId, addTypingUser, members } from "./stores";
+import { authToken, currentUser, currentChannelId, currentServerId, messages, pinnedMessages, voiceStates, voiceChannelId, addTypingUser, members } from "./stores";
 import type { WsEnvelope, Message, VoiceState } from "./types";
 import { getServerUrl } from "./api";
 
@@ -135,11 +135,13 @@ function handleMessage(env: WsEnvelope) {
         case "message_deleted": {
             const { message_id } = env.payload;
             messages.update((msgs) => msgs.filter((m) => m.id !== message_id));
+            pinnedMessages.update((pins) => pins.filter((p) => p.id !== message_id));
             break;
         }
 
         case "message_updated": {
             const { message_id, content, edited_at, pinned } = env.payload;
+
             messages.update((msgs) =>
                 msgs.map((m) =>
                     m.id === message_id
@@ -152,6 +154,21 @@ function handleMessage(env: WsEnvelope) {
                         : m,
                 ),
             );
+
+            pinnedMessages.update((pins) => {
+                const alreadyPinned = pins.some((p) => p.id === message_id);
+
+                if (pinned) {
+                    if (!alreadyPinned) {
+                        const msg = get(messages).find((m) => m.id === message_id);
+                        pins.push(msg!);
+                    }
+                    return pins;
+                }
+
+                return pins.filter((p) => p.id !== message_id);
+            });
+
             break;
         }
 
