@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.5.6] (Client only) - 2026-02-15
+
+- Cleanup server settings modal
+- Add audio settings page to user
+- Add extra WebRTC logging
+
 ## [0.5.5] - 2026-02-14
 
 - Fix TURN using wrong username
