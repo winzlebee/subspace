@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.5.5] - 2026-02-14
+
+- Fix TURN using wrong username
+
 ## [0.5.4] - 2026-02-14
 
 - Fix client-side TURN handling
