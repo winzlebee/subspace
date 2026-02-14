@@ -1,4 +1,4 @@
-use axum::{routing::get, Json, extract::State};
+use axum::{Json, extract::State};
 use crate::AppState;
 use std::sync::Arc;
 use serde::Serialize;
@@ -12,7 +12,7 @@ pub struct TurnConfig {
 pub async fn get_turn_credentials(
     State(_state): State<Arc<AppState>>,
 ) -> Json<TurnConfig> {
-    let password = std::env::var("TURN_PASSWORD").unwrap_or_else(|_| "password".to_string());
+    let password = std::env::var("TURN_PASSWORD").expect("TURN_PASSWORD must be set");
     Json(TurnConfig {
         username: format!("subspace:{}", password),
         credential: password,
