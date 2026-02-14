@@ -58,8 +58,9 @@
         class="h-12 flex items-center justify-between px-4 border-b border-base-300 shrink-0 bg-base-100"
     >
         <h3 class="font-bold text-base-content flex items-center gap-2">
-            📌 Pinned Messages
+            Pinned Messages
         </h3>
+        
         <button
             class="btn btn-ghost btn-sm btn-square"
             onclick={onClose}

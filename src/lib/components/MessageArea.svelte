@@ -378,21 +378,6 @@
                 onclick={() => (showPins = !showPins)}
                 title="Pinned Messages"
             >
-                <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    class="h-5 w-5"
-                    viewBox="0 0 20 20"
-                    fill="currentColor"
-                >
-                    <path
-                        d="M9.828 3h3.982a2 2 0 011.992 2.181l-.637 7A2 2 0 0113.174 14H2.826a2 2 0 01-1.991-1.819l-.637-7a1.99 1.99 0 01.342-1.31L.5 3a2 2 0 012-2h3.672a2 2 0 011.414.586l.414.414a2 2 0 001.414 0l.414-.414A2 2 0 019.828 3zm-8.328.002L1.5 3a1 1 0 011-1h13.5a1 1 0 011 1l-.001.324-1.363 11.514a1 1 0 01-.989.879H4.353a1 1 0 01-.99-.88L2 4.002l-.5 1.5H1.5z"
-                    />
-                    <path
-                        fill-rule="evenodd"
-                        d="M5 4v3H4l4 5 4-5V4a1 1 0 00-1-1H6a1 1 0 00-1 1z"
-                        clip-rule="evenodd"
-                    />
-                </svg>
                 <!-- Using simple pin icon -->
                 <span class="text-lg leading-none">📌</span>
             </button>
@@ -605,7 +590,14 @@
                                 <div class="flex flex-wrap gap-1 mt-1">
                                     {#each msg.reactions as reaction}
                                         <button
-                                            class="badge badge-sm badge-ghost gap-1 cursor-pointer hover:bg-primary/20 transition-colors"
+                                            class="badge badge-sm badge-ghost gap-1 cursor-pointer hover:bg-primary/40 {reaction.me
+                                                ? 'bg-primary/20'
+                                                : ''} transition-colors"
+                                            onclick={() =>
+                                                removeReaction(
+                                                    msg.id,
+                                                    reaction.emoji,
+                                                )}
                                         >
                                             {reaction.emoji}
                                             {reaction.count}

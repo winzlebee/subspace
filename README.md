@@ -1,15 +1,15 @@
 # Subspace
 
+Subspace is a discord-like messaging application that is intended to provide the bare-minimum functionality to get orphans from Discord off the ground without requiring too much complicated setup.
+
+As long as you can host a server or docker container on a computer somewhere, you can host your own subspace server.
+
 > [!WARNING]
 > This project was almost entirely vibe-coded. It's intended to provide the bare-minimum functionality to begin a transition from Discord. I don't recommend using this in any situation.
 > If for some reason you do, only allow access to the server to people you know personally, as there are **severe security implications**. 
 > For example, the `/upload` endpoint was vibe-given public access by Claude. Lmao.
 > I'm not a security expert, so take this with a grain of salt.
 > Hey, at least I wrote the README 🤷
-
-Subspace is a discord-like messaging application that is intended to provide the bare-minimum functionality to get orphans from Discord off the ground without requiring too much complicated setup.
-
-As long as you can host a server or docker container on a computer somewhere, you can host your own subspace server.
 
 ## The gist
 
@@ -18,6 +18,10 @@ Client and server downloads are available on the [releases](https://github.com/w
 - Host the backend server (available as a docker container) on a particular IP, ideally behind a reverse-proxy like nginx or cloudflared
 - Clients can download the client for their platform and enter the IP of your main server.
 - The client will remember this IP, and provide a discord-like interface for managing and connecting to servers.
+
+## Scope
+
+Subspace is designed for small communities where everyone already knows and trusts each other. For this reason, I've intentionally left out any moderation tools, including restricting management and creation of servers to certain users. Every user gets the same permissions from the get-go.
 
 ## Running locally
 
