@@ -204,6 +204,6 @@ export async function uploadFile(file: File): Promise<{ url: string; file_name: 
 
 // ── TURN ─────────────────────────────────────────────────────────────
 
-export async function getTurnCredentials(): Promise<{ username: string; credential: string }> {
+export async function getTurnCredentials(): Promise<{ uris: string[], username: string; credential: string }> {
     return request("/turn");
 }

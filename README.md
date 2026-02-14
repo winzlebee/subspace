@@ -52,6 +52,9 @@ The easiest way to host Subspace is via its `docker-compose.yml` file located in
 TURN_PASSWORD=$(openssl rand -base64 32)
 echo "TURN_PASSWORD=$TURN_PASSWORD" > .env
 
+# Optional: Set a custom TURN_URL if your TURN server is hosted on a different domain/port
+# echo "TURN_URL=turn:turn.example.com:3478" >> .env
+
 # Start the subspace server and coturn TURN server
 docker compose up -d
 ```

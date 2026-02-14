@@ -19,14 +19,20 @@ async function getIceServers(): Promise<RTCConfiguration> {
     }
 
     try {
-        // Get the credentials for the locally running TURN server from the subspace instance.
+        // Get the credentials for the TURN server from the subspace instance.
 
         const creds = await getTurnCredentials();
+        let turnUrls = creds.uris;
+
+        if (!turnUrls || turnUrls.length === 0) {
+            // Just assume the TURN server is running on the same host as the subspace instance
+            turnUrls = [`turn:${hostname}:3478`];
+        }
 
         return {
             iceServers: [
                 {
-                    urls: `turn:${hostname}:3478`,
+                    urls: turnUrls,
                     username: creds.username,
                     credential: creds.credential,
                 },

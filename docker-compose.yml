@@ -11,6 +11,7 @@ services:
       - ./data:/app/data
     environment:
       - TURN_PASSWORD=${TURN_PASSWORD:-password}
+      - TURN_URL=${TURN_URL:-}
 
   coturn:
     image: coturn/coturn

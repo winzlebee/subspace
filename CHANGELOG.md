@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.5.3] - 2026-02-14
+
+- Allow setting a custom TURN server URI via the TURN_URL environment variable
+
 ## [0.5.2] (Client only) - 2026-02-14
 
 - Fixup reactions
