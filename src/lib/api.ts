@@ -190,3 +190,9 @@ export async function uploadFile(file: File): Promise<{ url: string; file_name: 
     if (!res.ok) throw new Error(`Upload failed: ${res.status}`);
     return res.json();
 }
+
+// ── TURN ─────────────────────────────────────────────────────────────
+
+export async function getTurnCredentials(): Promise<{ username: string; credential: string }> {
+    return request("/turn");
+}

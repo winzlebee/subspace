@@ -1,4 +1,4 @@
-export const APP_NAME = "Concord";
+export const APP_NAME = "Subspace";
 
 export const THEMES = {
     LIGHT: "subspace-light",

@@ -1,0 +1,33 @@
+version: '3.8'
+
+services:
+  subspace:
+    image: winzlebee/subspace:latest
+    container_name: subspace
+    restart: always
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./data:/app/data
+    environment:
+      - TURN_PASSWORD=${TURN_PASSWORD:-password}
+
+  coturn:
+    image: coturn/coturn
+    container_name: subspace-turn
+    restart: always
+    network_mode: "host"
+    environment:
+      - TURN_PASSWORD=${TURN_PASSWORD:-password}
+    command:
+      - -n
+      - --log-file=stdout
+      - --min-port=49160
+      - --max-port=49200
+      - --realm=subspace
+      - --user=subspace:${TURN_PASSWORD:-password}
+      - --lt-cred-mech
+      - --fingerprint
+      - --no-cli
+    volumes:
+      - ./turn-data:/var/lib/coturn

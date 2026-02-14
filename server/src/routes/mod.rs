@@ -1,7 +1,9 @@
 pub mod channels;
 pub mod messages;
 pub mod servers;
+pub mod servers;
 pub mod users;
+pub mod turn;
 
 use std::sync::Arc;
 use axum::{
@@ -48,7 +50,9 @@ pub fn api_routes(state: Arc<AppState>) -> Router<Arc<AppState>> {
         .route("/messages/{message_id}/reactions", axum::routing::post(messages::add_reaction))
         .route("/messages/{message_id}/reactions", axum::routing::delete(messages::remove_reaction))
         .route("/upload", axum::routing::post(users::upload_file))
-        .route_layer(middleware::from_fn_with_state(state, require_auth));
+        .route("/turn", axum::routing::get(turn::get_turn_credentials));
+
+    protected.layer(middleware::from_fn_with_state(state, require_auth))
 
     public.merge(protected)
 }

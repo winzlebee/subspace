@@ -4,20 +4,52 @@ import { wsSignalSdp, wsSignalIce } from "./ws";
 import type { SignalSdpPayload, SignalIcePayload } from "./types";
 import { writable } from "svelte/store";
 
-const STUN_SERVERS = {
-    iceServers: [
-        { urls: "stun:stun.l.google.com:19302" },
-        { urls: "stun:stun.l.google.com:5349" },
-        { urls: "stun:stun1.l.google.com:3478" },
-        { urls: "stun:stun1.l.google.com:5349" },
-        { urls: "stun:stun2.l.google.com:19302" },
-        { urls: "stun:stun2.l.google.com:5349" },
-        { urls: "stun:stun3.l.google.com:3478" },
-        { urls: "stun:stun3.l.google.com:5349" },
-        { urls: "stun:stun4.l.google.com:19302" },
-        { urls: "stun:stun4.l.google.com:5349" }
-    ],
-};
+import { getServerUrl, getTurnCredentials } from "./api";
+
+async function getIceServers(): Promise<RTCConfiguration> {
+    const serverUrl = getServerUrl();
+
+    // Gets the base server hostname minus any port or leading protocol information. 
+    // We can use this to get the TURN server URL
+    const hostname = serverUrl.replace(/^https?:\/\//, "").split(":")[0];
+
+    if (!hostname) {
+        // We really need a hostname to get further here. So don't worry about trying any connection if there is no TURN server.
+        throw new Error("Could not determine hostname from server URL");
+    }
+
+    try {
+        // Get the credentials for the locally running TURN server from the subspace instance.
+
+        const creds = await getTurnCredentials();
+
+        return {
+            iceServers: [
+                {
+                    urls: `turn:${hostname}:3478`,
+                    username: creds.username,
+                    credential: creds.credential,
+                },
+                {
+                    urls: `stun:${hostname}:3478`,
+                },
+            ],
+        };
+    } catch (error) {
+        // We couldn't get any credentials - that's fine, we can still use STUN. 
+        // The caveat is that STUN won't work if the user is behind a symmetric NAT.
+
+        console.error("Failed to fetch TURN credentials, falling back to STUN only:", error);
+
+        return {
+            iceServers: [
+                {
+                    urls: `stun:${hostname}:3478`,
+                },
+            ],
+        };
+    }
+}
 
 let localStream: MediaStream | null = null;
 let localVideoTrack: MediaStreamTrack | null = null;
@@ -340,7 +372,8 @@ export async function toggleScreenShare(enable: boolean) {
 async function createPeerConnection(targetUserId: string, initiator: boolean) {
     if (peerConnections[targetUserId]) return peerConnections[targetUserId];
 
-    const pc = new RTCPeerConnection(STUN_SERVERS);
+    const iceServers = await getIceServers();
+    const pc = new RTCPeerConnection(iceServers);
     peerConnections[targetUserId] = pc;
 
     // Add local tracks

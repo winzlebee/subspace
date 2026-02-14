@@ -7,7 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
-### Added
+## [0.4.5] - 2026-02-14
+
+- Add mandatory TURN server for WebRTC connection
+    - This is required for voice chat to work
+    - The TURN server is always provided by the same instance as the subspace server
+    - This means that if you're hosting your own subspace server, you'll need to host your own TURN server as well
 
 ## [0.4.4] - 2026-02-14
 

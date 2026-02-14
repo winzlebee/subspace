@@ -34,25 +34,27 @@ npm run tauri dev
 
 ## Detailed Hosting Instructions
 
+To run subspace, you'll need to host both Subspace' server itself along with a TURN server for WebRTC. It's also possible to run subspace without any TURN server, but in practice the WebRTC connections will fail because most consumer routers now seem to have symmetric NAT. 
+
+> **Trivia**
+> Eventually, subspace will need to re-implement its own [special TURN server](https://web.archive.org/web/20200329084934/https://blog.discordapp.com/how-discord-handles-two-and-half-million-concurrent-voice-users-using-webrtc-ce01c3187429?gi=626623d44c6a) to support many people on the same voice call at once and to reduce the network traffic required on the server PC.
+
 ### Docker Compose
 
-The easiest way to host Subspace is via Docker. Create a `docker-compose.yml` file with the following configuration:
+The easiest way to host Subspace is via its `docker-compose.yml` file located in the root of the repository. It will automatically set up the server and a [coturn](https://github.com/coturn/coturn) TURN server.
 
-```yaml
-services:
-  subspace:
-    image: winzlebee/subspace:latest
-    ports:
-      - "8080:8080"
-    volumes:
-      - ./data:/app/data
-    restart: always
-```
-
-Run the server:
 ```bash
+# Create a secure random password for the TURN server. This will be sent to clients when they need to connect via WebRTC from the subspace server.
+TURN_PASSWORD=$(openssl rand -base64 32)
+echo "TURN_PASSWORD=$TURN_PASSWORD" > .env
+
+# Start the subspace server and coturn TURN server
 docker compose up -d
 ```
+
+> [!IMPORTANT]
+> The TURN server requires specific ports (3478 UDP/TCP) to be open and accessible.
+> Please make sure you set the `TURN_PASSWORD` environment variable. This provides basic protection against unauthenticated users hogging your TURN server's bandwidth or using it for traffic amplification.
 
 ### Reverse Proxy (Nginx)
 
@@ -72,6 +74,11 @@ server {
     }
 }
 ```
+
+### TURN over TLS
+
+If you expect users to connect from heavily restricted networks that only allow HTTPS traffic, you need to configure coturn to use TLS. 
+This is currently unimplemented, but if there is enough interest I'll add support for this.
 
 ## Configuration
 
@@ -101,7 +108,7 @@ Not that it really matters (what - with it being vibe-coded and all), but here's
 A lot at the moment. The ones that I plan to maybe plug away at;
 
 - Only sqlite is supported as a database backend at the moment. This limits this to smaller servers, as that's all I needed to get running.
-- No video and screenshare is available
+- Discord uses a complicated server-side system of ensuring only relevant WebRTC traffic is transmitted. Since we don't do that, it'll really struggle on large calls (>15 people)
 
 ## Contributing
 
