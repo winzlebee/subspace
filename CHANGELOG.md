@@ -7,16 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
-## [0.5.1] - 2026-02-14
+## [0.5.2] (Client only) - 2026-02-14
+
+- Fixup reactions
+
+## [0.5.1] (Client only) - 2026-02-14
 
 - Add emoji keyboard
 - Emoji-only messages render larger than regular messages
 
-## [0.5.0] - 2026-02-14
+## [0.5.0] (Client only) - 2026-02-14
 
 - Fix message pinning (done by me as claude can't figure it out)
 
-## [0.4.7] - 2026-02-14
+## [0.4.7] (Client only) - 2026-02-14
 
 - Add 'Login Again' on a 404 error when a token for a server in local storage is no longer valid
 - Remove redundant second 'Join Server' button
