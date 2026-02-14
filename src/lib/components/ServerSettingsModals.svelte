@@ -229,7 +229,7 @@
                     </h3>
 
                     <!-- Existing channels -->
-                    <div class="space-y-1 mb-4 max-h-48 overflow-y-auto">
+                    <div class="space-y-2 mb-4 max-h-48 overflow-y-auto">
                         {#each $channels as channel (channel.id)}
                             <div
                                 class="flex items-center justify-between px-3 py-2 rounded-lg bg-base-200 group"
@@ -258,30 +258,32 @@
                     </div>
 
                     <!-- Create new channel -->
-                    <div
-                        class="flex items-end gap-2 border-t border-base-300 pt-3"
-                    >
-                        <fieldset class="fieldset flex-1">
-                            <label class="fieldset-label" for="new-channel-name"
-                                >Name</label
-                            >
+
+                    <h2 class="text-sm font-semibold text-base-content/70 mb-3">
+                        Create a New Channel
+                    </h2>
+
+                    <div class="flex gap-2">
+                        <label class="input flex-3">
+                            <span class="text-base-content/40">#</span>
                             <input
                                 id="new-channel-name"
                                 type="text"
-                                class="input input-bordered input-sm w-full"
-                                placeholder="new-channel"
+                                class="input input-bordered input-md"
+                                placeholder="new-channel-name"
                                 bind:value={newChannelName}
                             />
-                        </fieldset>
+                        </label>
                         <select
-                            class="select select-bordered select-sm"
+                            id="new-channel-type"
+                            class="select select-bordered select-md flex-1"
                             bind:value={newChannelType}
                         >
                             <option value="text">Text</option>
                             <option value="voice">Voice</option>
                         </select>
                         <button
-                            class="btn btn-sm btn-primary"
+                            class="btn btn-md btn-primary"
                             onclick={handleCreateChannel}
                             disabled={creatingChannel || !newChannelName.trim()}
                         >
