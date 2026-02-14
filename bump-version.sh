@@ -38,10 +38,15 @@ echo "Updating Cargo.lock..."
 cargo check
 
 echo "Done! Version bumped to $NEW_VERSION across all files."
-echo "Don't forget to:"
-echo "  1. Update CHANGELOG.md with the new version's changes"
-echo "  2. Commit and tag:"
-echo "     git commit -am \"chore: bump version to v$NEW_VERSION\""
-echo "     git tag v$NEW_VERSION"
-echo "     git push origin v$NEW_VERSION"
+echo "Committing version bump..."
+git commit -am "Bump version to v$NEW_VERSION"
+
+echo "Tagging v$NEW_VERSION..."
+git tag "v$NEW_VERSION"
+
+echo "Pushing changes and tag..."
+git push
+git push origin "v$NEW_VERSION"
+
+echo "Done! Version bumped to $NEW_VERSION and pushed to remote."
 
