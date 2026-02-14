@@ -25,9 +25,7 @@ async function getIceServers(): Promise<RTCConfiguration> {
             turnUrls = [`turn:${hostname}:3478`];
         }
 
-        console.log("Connecting to WebRTC via TURN servers: ", turnUrls);
-
-        return {
+        const servers = {
             iceServers: [
                 {
                     urls: turnUrls,
@@ -36,6 +34,10 @@ async function getIceServers(): Promise<RTCConfiguration> {
                 }
             ],
         };
+
+        console.log("Connecting to WebRTC via ICE servers: ", servers);
+
+        return servers;
     } catch (error) {
         // We couldn't get any credentials - that's fine, we can still use STUN. 
         // The caveat is that STUN won't work if the user is behind a symmetric NAT.
