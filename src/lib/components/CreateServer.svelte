@@ -1,6 +1,6 @@
 <script lang="ts">
     import { showCreateServer, servers } from "$lib/stores";
-    import { createServer, joinServer } from "$lib/api";
+    import { createServer, joinServer, listServers } from "$lib/api";
     import { disconnectWs, connectWs } from "$lib/ws";
 
     let { onCreated }: { onCreated: (id: string) => void } = $props();
@@ -32,10 +32,16 @@
         loading = true;
         error = "";
         try {
+            // Join the server
             await joinServer(inviteCode.trim());
+
+            // Then re-set the list of servers from the remote
+            servers.set(await listServers());
+
             // Force reconnect to pick up new server subscription
             disconnectWs();
             connectWs();
+
             showCreateServer.set(false);
         } catch (e: any) {
             error = e.message;
