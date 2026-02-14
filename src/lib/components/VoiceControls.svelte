@@ -9,6 +9,7 @@
         toggleScreenShare,
         localVideoStream,
         localScreenStream,
+        webrtcError,
     } from "$lib/webrtc";
     import { derived } from "svelte/store";
 
@@ -53,13 +54,32 @@
     class="flex items-center gap-2 px-4 py-2 bg-base-300 border-t border-base-content/10 shrink-0"
 >
     <div class="flex items-center gap-2 flex-1 min-w-0">
-        <div class="w-2 h-2 rounded-full bg-success animate-pulse"></div>
-        <span class="text-sm text-success font-medium">Voice Connected</span>
-        {#if $voiceChannel}
-            <span class="text-xs text-base-content/40"
-                >/ {$voiceChannel.name}</span
+        <div
+            class="w-2 h-2 rounded-full {$webrtcError
+                ? 'bg-error'
+                : 'bg-success'} animate-pulse"
+        ></div>
+        <div class="flex flex-col">
+            <span
+                class="text-sm font-medium {$webrtcError
+                    ? 'text-error'
+                    : 'text-success'}"
             >
-        {/if}
+                {$webrtcError ? "Connection Failed" : "Voice Connected"}
+            </span>
+            {#if $webrtcError}
+                <span
+                    class="text-xs text-error/60 truncate"
+                    title={$webrtcError}
+                >
+                    {$webrtcError}
+                </span>
+            {:else if $voiceChannel}
+                <span class="text-xs text-base-content/40 truncate">
+                    / {$voiceChannel.name}
+                </span>
+            {/if}
+        </div>
     </div>
 
     <div class="flex items-center gap-1">

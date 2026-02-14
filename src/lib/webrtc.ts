@@ -62,6 +62,7 @@ let peerConnections: Record<string, RTCPeerConnection> = {};
 export const remoteStreams = writable<Record<string, MediaStream[]>>({});
 export const localVideoStream = writable<MediaStream | null>(null);
 export const localScreenStream = writable<MediaStream | null>(null);
+export const webrtcError = writable<string | null>(null);
 
 // ── Web Audio API Context ────────────────────────────────────────────────────
 // We use a single global AudioContext for both playback and analysis.
@@ -228,6 +229,8 @@ function stopSpeakingCheckLoop() {
 
 export async function joinVoice(channelId: string) {
     try {
+        webrtcError.set(null);
+
         // 0. Init Audio Context (must happen during user interaction event loop roughly)
         initAudioContext();
 
@@ -428,7 +431,9 @@ async function createPeerConnection(targetUserId: string, initiator: boolean) {
     pc.oniceconnectionstatechange = () => {
         console.log(`ICE Connection State (${targetUserId}):`, pc.iceConnectionState);
         if (pc.iceConnectionState === "failed") {
-            console.error("ICE connection failed. Verify TURN configuration.");
+            const err = "ICE connection failed. Check TURN config.";
+            console.error(err);
+            webrtcError.set(err);
         }
     };
 
