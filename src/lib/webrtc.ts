@@ -64,6 +64,102 @@ export const localVideoStream = writable<MediaStream | null>(null);
 export const localScreenStream = writable<MediaStream | null>(null);
 export const webrtcError = writable<string | null>(null);
 
+// ── Audio Settings ───────────────────────────────────────────────────────────
+export const audioInputDeviceId = writable<string | null>(localStorage.getItem("audioInputDeviceId"));
+export const audioOutputDeviceId = writable<string | null>(localStorage.getItem("audioOutputDeviceId"));
+
+audioInputDeviceId.subscribe(id => {
+    if (id) localStorage.setItem("audioInputDeviceId", id);
+    else localStorage.removeItem("audioInputDeviceId");
+});
+
+audioOutputDeviceId.subscribe(id => {
+    if (id) localStorage.setItem("audioOutputDeviceId", id);
+    else localStorage.removeItem("audioOutputDeviceId");
+    // Apply output device change immediately if possible
+    setAudioOutputDevice(id);
+});
+
+
+export async function getAudioDevices() {
+    try {
+        // Request permission primarily to get labels
+        await navigator.mediaDevices.getUserMedia({ audio: true });
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        return {
+            inputs: devices.filter(d => d.kind === "audioinput"),
+            outputs: devices.filter(d => d.kind === "audiooutput")
+        };
+    } catch (e) {
+        console.error("Error getting audio devices:", e);
+        return { inputs: [], outputs: [] };
+    }
+}
+
+export async function setAudioInputDevice(deviceId: string) {
+    console.log("Switching audio input to", deviceId);
+    audioInputDeviceId.set(deviceId);
+
+    // If we're currently in a call (localStream exists), we need to switch the track
+    if (localStream) {
+        try {
+            const newStream = await navigator.mediaDevices.getUserMedia({
+                audio: { deviceId: { exact: deviceId } },
+                video: false
+            });
+
+            const newTrack = newStream.getAudioTracks()[0];
+            const oldTrack = localStream.getAudioTracks()[0];
+
+            if (oldTrack) {
+                oldTrack.stop();
+                localStream.removeTrack(oldTrack);
+            }
+            localStream.addTrack(newTrack);
+
+            // Update all peer connections
+            for (const pc of Object.values(peerConnections)) {
+                const sender = pc.getSenders().find(s => s.track?.kind === "audio");
+                if (sender) {
+                    sender.replaceTrack(newTrack);
+                } else {
+                    // Fallback: add track if it wasn't there (shouldn't happen in voice mode usually)
+                    pc.addTrack(newTrack, localStream);
+                }
+            }
+
+            // Restart speaking detection with new stream
+            stopLocalSpeakingDetection();
+            startLocalSpeakingDetection(localStream);
+
+        } catch (e) {
+            console.error("Failed to switch input device:", e);
+        }
+    }
+}
+
+export async function setAudioOutputDevice(deviceId: string | null) {
+    if (!deviceId) return;
+    console.log("Switching audio output to", deviceId);
+
+    // Verify support for setSinkId
+    // @ts-ignore
+    if (!HTMLMediaElement.prototype.setSinkId) {
+        console.warn("Browser does not support setSinkId");
+        return;
+    }
+
+    // Update all remote audio elements
+    for (const node of Object.values(remoteNodes)) {
+        try {
+            // @ts-ignore
+            await node.audio.setSinkId(deviceId);
+        } catch (e) {
+            console.error("Failed to set output device for remote user:", e);
+        }
+    }
+}
+
 // ── Web Audio API Context ────────────────────────────────────────────────────
 // We use a single global AudioContext for both playback and analysis.
 // This context must be resumed on a user interaction (Join Voice click).
@@ -148,6 +244,14 @@ function handleRemoteStream(userId: string, stream: MediaStream) {
             const audio = new Audio();
             audio.srcObject = stream;
             audio.muted = true; // We hear it via Web Audio
+
+            const outputId = get(audioOutputDeviceId);
+            // @ts-ignore
+            if (outputId && typeof audio.setSinkId === 'function') {
+                // @ts-ignore
+                audio.setSinkId(outputId).catch(console.error);
+            }
+
             audio.play().catch(e => console.warn("Hidden audio play failed:", e));
 
             remoteNodes[userId] = { source, analyser, gain, audio };
