@@ -41,7 +41,15 @@ async fn main() {
         .nest("/api", routes::api_routes(state.clone()))
         .route("/ws", axum::routing::get(ws::ws_handler))
         .nest_service("/uploads", tower_http::services::ServeDir::new(&state.upload_dir))
-        .layer(CorsLayer::permissive())
+        .layer(
+            CorsLayer::new()
+                .allow_origin(tower_http::cors::Any)
+                .allow_methods(tower_http::cors::Any)
+                .allow_headers([
+                    axum::http::header::AUTHORIZATION,
+                    axum::http::header::CONTENT_TYPE,
+                ]),
+        )
         .with_state(state);
 
     let addr = std::env::var("BIND_ADDR").unwrap_or_else(|_| "0.0.0.0:3001".into());
