@@ -71,7 +71,7 @@ let globalAudioCtx: AudioContext | null = null;
 
 // Track nodes to clean them up later
 // key: userId
-const remoteNodes: Record<string, { source: MediaStreamAudioSourceNode; analyser: AnalyserNode; gain: GainNode }> = {};
+const remoteNodes: Record<string, { source: MediaStreamAudioSourceNode; analyser: AnalyserNode; gain: GainNode; audio: HTMLAudioElement }> = {};
 
 // Local nodes (for speaking detection only, not playback)
 let localNodes: { source: MediaStreamAudioSourceNode; analyser: AnalyserNode } | null = null;
@@ -143,7 +143,14 @@ function handleRemoteStream(userId: string, stream: MediaStream) {
             analyser.connect(gain);
             gain.connect(globalAudioCtx.destination);
 
-            remoteNodes[userId] = { source, analyser, gain };
+            // Workaround: Attach to a hidden audio element to ensure the stream flows
+            // This fixes issues where some browsers GC the stream or don't render it via Web Audio
+            const audio = new Audio();
+            audio.srcObject = stream;
+            audio.muted = true; // We hear it via Web Audio
+            audio.play().catch(e => console.warn("Hidden audio play failed:", e));
+
+            remoteNodes[userId] = { source, analyser, gain, audio };
 
             // Handle stream end (audio track specifically)
             stream.getAudioTracks()[0].onended = () => {
@@ -178,10 +185,14 @@ function handleRemoteStream(userId: string, stream: MediaStream) {
 
 function cleanupRemoteUser(userId: string) {
     if (remoteNodes[userId]) {
-        const { source, analyser, gain } = remoteNodes[userId];
+        const { source, analyser, gain, audio } = remoteNodes[userId];
         source.disconnect();
         analyser.disconnect();
         gain.disconnect();
+
+        audio.srcObject = null;
+        audio.pause();
+
         delete remoteNodes[userId];
     }
     remoteStreams.update(s => {
@@ -378,20 +389,29 @@ export async function toggleScreenShare(enable: boolean) {
 async function createPeerConnection(targetUserId: string, initiator: boolean) {
     if (peerConnections[targetUserId]) return peerConnections[targetUserId];
 
+    console.log(`[WebRTC] Creating PeerConnection for ${targetUserId} (initiator=${initiator})`);
+
     const iceServers = await getIceServers();
     const pc = new RTCPeerConnection(iceServers);
     peerConnections[targetUserId] = pc;
 
     // Add local tracks
     if (localStream) {
-        localStream.getTracks().forEach((track) => pc.addTrack(track, localStream!));
+        const tracks = localStream.getTracks();
+        console.log(`[WebRTC] Adding ${tracks.length} local audio tracks to ${targetUserId}`);
+        tracks.forEach((track) => pc.addTrack(track, localStream!));
+    } else {
+        console.warn(`[WebRTC] No localStream found when creating PC for ${targetUserId}`);
     }
+
     if (localVideoTrack) {
+        console.log(`[WebRTC] Adding local video track to ${targetUserId}`);
         // Create a dummy stream for the track if we need to, or reuse localStream if possible.
         // WebRTC tracks are what matters.
         pc.addTrack(localVideoTrack, new MediaStream([localVideoTrack]));
     }
     if (localScreenTrack) {
+        console.log(`[WebRTC] Adding local screen track to ${targetUserId}`);
         pc.addTrack(localScreenTrack, new MediaStream([localScreenTrack]));
     }
 
@@ -409,17 +429,22 @@ async function createPeerConnection(targetUserId: string, initiator: boolean) {
 
     // Handle remote stream
     pc.ontrack = (event) => {
+        console.log(`[WebRTC] ontrack from ${targetUserId}:`, event.track.kind, event.streams[0]?.id);
         const [remoteStream] = event.streams;
         if (remoteStream) {
             handleRemoteStream(targetUserId, remoteStream);
+        } else {
+            console.warn(`[WebRTC] ontrack from ${targetUserId} has no stream!`);
         }
     };
 
     // Negotiation needed (only for initiator)
     if (initiator) {
         pc.onnegotiationneeded = async () => {
+            console.log(`[WebRTC] onnegotiationneeded for ${targetUserId}`);
             try {
                 const offer = await pc.createOffer();
+                console.log(`[WebRTC] Created Offer for ${targetUserId} (SDP length: ${offer.sdp?.length})`);
                 await pc.setLocalDescription(offer);
                 wsSignalSdp(targetUserId, JSON.stringify(offer), "offer");
             } catch (e) {
@@ -429,7 +454,7 @@ async function createPeerConnection(targetUserId: string, initiator: boolean) {
     }
 
     pc.oniceconnectionstatechange = () => {
-        console.log(`ICE Connection State (${targetUserId}):`, pc.iceConnectionState);
+        console.log(`[WebRTC] ICE Connection State (${targetUserId}):`, pc.iceConnectionState);
         if (pc.iceConnectionState === "failed") {
             const err = "ICE connection failed. Check TURN config.";
             console.error(err);
@@ -438,7 +463,15 @@ async function createPeerConnection(targetUserId: string, initiator: boolean) {
     };
 
     pc.onicegatheringstatechange = () => {
-        console.log(`ICE Gathering State (${targetUserId}):`, pc.iceGatheringState);
+        console.log(`[WebRTC] ICE Gathering State (${targetUserId}):`, pc.iceGatheringState);
+    };
+
+    pc.onconnectionstatechange = () => {
+        console.log(`[WebRTC] Connection State (${targetUserId}):`, pc.connectionState);
+    };
+
+    pc.onsignalingstatechange = () => {
+        console.log(`[WebRTC] Signaling State (${targetUserId}):`, pc.signalingState);
     };
 
     return pc;
@@ -456,7 +489,7 @@ async function handleSignal(event: CustomEvent) {
         const { from_user_id, target_user_id, sdp, sdp_type } = payload;
 
         if (target_user_id !== myId) return;
-        console.log(`Received SDP ${sdp_type} from ${from_user_id}`);
+        console.log(`[WebRTC] Received SDP ${sdp_type} from ${from_user_id}`);
 
         let pc = peerConnections[from_user_id];
 
@@ -475,9 +508,11 @@ async function handleSignal(event: CustomEvent) {
             }
 
             const descObj = JSON.parse(sdp);
+            console.log(`[WebRTC] Setting Remote Description (${sdp_type}) from ${from_user_id}`);
             await pc.setRemoteDescription(descObj);
 
             if (sdp_type === "offer") {
+                console.log(`[WebRTC] Creating Answer for ${from_user_id}`);
                 const answer = await pc.createAnswer();
                 await pc.setLocalDescription(answer);
                 wsSignalSdp(from_user_id, JSON.stringify(answer), "answer");
