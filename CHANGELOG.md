@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
-## [0.5.7] (Client only) - 2026-02-15
+## [0.5.8] (Client only) - 2026-02-15
 
 - Cleanup server settings modal
 - Add audio settings page to user
