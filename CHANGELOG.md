@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+
+## [0.5.9] (Client only) - 2026-02-15
+
+- Fix join server not refreshing the server list
+- Fix join server not setting the current server
+- Fix padding on phone so voice controls are visible
+
 ## [0.5.8] (Client only) - 2026-02-15
 
 - Cleanup server settings modal
