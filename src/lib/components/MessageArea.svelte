@@ -25,6 +25,7 @@
     import { marked } from "marked";
 
     import PinnedMessages from "./PinnedMessages.svelte";
+    import EmojiPicker from "./EmojiPicker.svelte";
 
     let messageInput = $state("");
     let messagesContainer: HTMLDivElement | undefined = $state();
@@ -32,6 +33,42 @@
     let fileInput: HTMLInputElement | undefined = $state();
     let isUploading = $state(false);
     let showPins = $state(false);
+
+    // Emoji Picker State
+    // Emoji Picker State
+    let showEmojiPicker = $state(false);
+    let emojiPickerTarget: "input" | { msgId: string } | null = $state(null);
+    let emojiPickerTrigger: HTMLElement | null = $state(null);
+
+    function handleEmojiSelect(emoji: string) {
+        if (emojiPickerTarget === "input") {
+            messageInput += emoji;
+        } else if (emojiPickerTarget && typeof emojiPickerTarget === "object") {
+            addReaction(emojiPickerTarget.msgId, emoji).catch(console.error);
+        }
+        showEmojiPicker = false;
+        emojiPickerTarget = null;
+        emojiPickerTrigger = null;
+    }
+
+    function toggleEmojiPicker(
+        target: "input" | { msgId: string },
+        event: MouseEvent,
+    ) {
+        if (
+            showEmojiPicker &&
+            JSON.stringify(emojiPickerTarget) === JSON.stringify(target)
+        ) {
+            showEmojiPicker = false;
+            emojiPickerTarget = null;
+            emojiPickerTrigger = null;
+            return;
+        }
+
+        emojiPickerTarget = target;
+        emojiPickerTrigger = event.currentTarget as HTMLElement;
+        showEmojiPicker = true;
+    }
 
     // Mention autocomplete
     let showMentions = $state(false);
@@ -234,20 +271,8 @@
         }
     }
 
-    async function handleReaction(msgId: string) {
-        const emoji = prompt("Enter an emoji:");
-
-        if (!emoji) {
-            return;
-        }
-
-        const msg = $messages.find((m) => m.id === msgId);
-
-        try {
-            await addReaction(msgId, emoji);
-        } catch (e) {
-            console.error("Reaction error:", e);
-        }
+    async function handleReaction(msgId: string, event: MouseEvent) {
+        toggleEmojiPicker({ msgId }, event);
     }
 
     async function handleDelete(msgId: string) {
@@ -474,7 +499,7 @@
                             <button
                                 class="btn btn-ghost btn-xs btn-square"
                                 title="Add reaction"
-                                onclick={() => handleReaction(msg.id)}
+                                onclick={(e) => handleReaction(msg.id, e)}
                             >
                                 😀
                             </button>
@@ -575,7 +600,7 @@
                             <button
                                 class="btn btn-ghost btn-xs btn-square"
                                 title="Add reaction"
-                                onclick={() => handleReaction(msg.id)}
+                                onclick={(e) => handleReaction(msg.id, e)}
                             >
                                 😀
                             </button>
@@ -693,6 +718,7 @@
                     class="btn btn-circle btn-ghost btn-sm mb-1 text-base-content/60 hover:text-warning"
                     title="Emoji"
                     aria-label="Emoji picker"
+                    onclick={(e) => toggleEmojiPicker("input", e)}
                 >
                     <svg
                         xmlns="http://www.w3.org/2000/svg"
@@ -733,6 +759,17 @@
         <PinnedMessages
             channelId={$currentChannelId}
             onClose={() => (showPins = false)}
+        />
+    {/if}
+    {#if showEmojiPicker}
+        <EmojiPicker
+            onSelect={handleEmojiSelect}
+            onClose={() => {
+                showEmojiPicker = false;
+                emojiPickerTarget = null;
+                emojiPickerTrigger = null;
+            }}
+            trigger={emojiPickerTrigger}
         />
     {/if}
 </div>
