@@ -8,6 +8,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 
+## [0.8.0] - 2026-02-15
+
+### Added
+
+- Voice Connection Diagnostics panel in Server Settings
+  - Real-time monitoring of WebRTC connection types (P2P vs TURN relay)
+  - Per-user connection status with detailed progress messages
+  - Overall voice status showing when alone in channel or connection states
+  - TURN server connection status and indicators
+  - Latency, bitrate, and traffic statistics for each connection
+  - ICE candidate information and connection state tracking
+  - Detailed status messages for connection progress (initializing, establishing, syncing, streaming)
+  - Color-coded status indicators for quick visual feedback
+  - Auto-updates every second while panel is open
+
+### Changed
+
+- Server Settings modal now uses tabbed interface (General and Voice Diagnostics tabs)
+
+
 ## [0.7.0] - 2026-02-15
 
 ### Added
