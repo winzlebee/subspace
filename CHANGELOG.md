@@ -8,6 +8,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 
+## [0.7.0] - 2026-02-15
+
+### Added
+
+- Direct Messages (DMs) - private 1-on-1 conversations between users
+- DM conversation list with last message preview
+- Full message history, reactions, and attachments in DMs
+- Real-time DM updates via WebSocket
+- DM icon in server sidebar for easy access
+
+
 ## [0.6.2] - 2026-02-15
 
 - Fix mobile web view formatting

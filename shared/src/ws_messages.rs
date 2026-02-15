@@ -153,3 +153,31 @@ pub struct WsMemberJoined {
 pub struct WsError {
     pub message: String,
 }
+
+// ────────────────────────────────────────────────────────────────────────────
+// Direct Messages
+// ────────────────────────────────────────────────────────────────────────────
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WsDmMessageCreated {
+    pub message: crate::models::DmMessage,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WsDmMessageUpdated {
+    pub message_id: Uuid,
+    pub content: Option<String>,
+    pub edited_at: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WsDmMessageDeleted {
+    pub message_id: Uuid,
+    pub conversation_id: Uuid,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WsDmReactionUpdated {
+    pub message_id: Uuid,
+    pub reactions: Vec<crate::models::ReactionGroup>,
+}

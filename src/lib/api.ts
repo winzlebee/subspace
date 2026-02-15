@@ -213,3 +213,52 @@ export async function getTurnCredentials(): Promise<{ uris: string[], username: 
 export async function getServerVersion(): Promise<{ version: string }> {
     return request("/version");
 }
+
+// ── Direct Messages ──────────────────────────────────────────────────
+
+export async function listDmConversations(): Promise<import("./types").DmConversation[]> {
+    return request("/dms");
+}
+
+export async function createDmConversation(recipientUsername: string): Promise<import("./types").DmConversation> {
+    return request("/dms", {
+        method: "POST",
+        body: JSON.stringify({ recipient_username: recipientUsername }),
+    });
+}
+
+export async function getDmMessages(conversationId: string): Promise<import("./types").DmMessage[]> {
+    return request(`/dms/${conversationId}/messages`);
+}
+
+export async function createDmMessage(conversationId: string, content: string): Promise<import("./types").DmMessage> {
+    return request(`/dms/${conversationId}/messages`, {
+        method: "POST",
+        body: JSON.stringify({ content }),
+    });
+}
+
+export async function editDmMessage(messageId: string, content: string) {
+    return request(`/dm_messages/${messageId}`, {
+        method: "PATCH",
+        body: JSON.stringify({ content }),
+    });
+}
+
+export async function deleteDmMessage(messageId: string) {
+    return request(`/dm_messages/${messageId}`, { method: "DELETE" });
+}
+
+export async function addDmReaction(messageId: string, emoji: string) {
+    return request(`/dm_messages/${messageId}/reactions`, {
+        method: "POST",
+        body: JSON.stringify({ emoji }),
+    });
+}
+
+export async function removeDmReaction(messageId: string, emoji: string) {
+    return request(`/dm_messages/${messageId}/reactions`, {
+        method: "DELETE",
+        body: JSON.stringify({ emoji }),
+    });
+}

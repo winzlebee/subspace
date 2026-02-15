@@ -75,6 +75,19 @@ impl WsState {
         let mut user_servers = self.user_servers.write().await;
         user_servers.remove(user_id);
     }
+
+    /// Broadcast a message to a specific user across all their subscribed servers
+    pub async fn broadcast_to_user(&self, user_id: &str, message: &str) {
+        let user_servers = self.user_servers.read().await;
+        if let Some(server_ids) = user_servers.get(user_id) {
+            let channels = self.server_channels.read().await;
+            for server_id in server_ids {
+                if let Some(tx) = channels.get(server_id) {
+                    let _ = tx.send(message.to_string());
+                }
+            }
+        }
+    }
 }
 
 /// WebSocket upgrade handler

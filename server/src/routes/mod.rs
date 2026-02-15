@@ -1,4 +1,5 @@
 pub mod channels;
+pub mod dms;
 pub mod messages;
 pub mod servers;
 pub mod users;
@@ -52,6 +53,14 @@ pub fn api_routes(state: Arc<AppState>) -> Router<Arc<AppState>> {
         .route("/messages/{message_id}/reactions", axum::routing::delete(messages::remove_reaction))
         .route("/upload", axum::routing::post(users::upload_file))
         .route("/turn", axum::routing::get(turn::get_turn_credentials))
+        .route("/dms", axum::routing::get(dms::list_conversations))
+        .route("/dms", axum::routing::post(dms::create_conversation))
+        .route("/dms/{conversation_id}/messages", axum::routing::get(dms::get_messages))
+        .route("/dms/{conversation_id}/messages", axum::routing::post(dms::create_message))
+        .route("/dm_messages/{message_id}", axum::routing::patch(dms::edit_message))
+        .route("/dm_messages/{message_id}", axum::routing::delete(dms::delete_message))
+        .route("/dm_messages/{message_id}/reactions", axum::routing::post(dms::add_reaction))
+        .route("/dm_messages/{message_id}/reactions", axum::routing::delete(dms::remove_reaction))
         .layer(middleware::from_fn_with_state(state, require_auth));
 
     public.merge(protected)

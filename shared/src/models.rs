@@ -179,3 +179,41 @@ pub struct UpdateUserRequest {
     pub language: Option<String>,
     pub notifications_enabled: Option<bool>,
 }
+
+// ────────────────────────────────────────────────────────────────────────────
+// Direct Messages
+// ────────────────────────────────────────────────────────────────────────────
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DmConversation {
+    pub id: Uuid,
+    pub user1_id: Uuid,
+    pub user2_id: Uuid,
+    pub other_user: UserPublic,
+    pub last_message: Option<DmMessage>,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DmMessage {
+    pub id: Uuid,
+    pub conversation_id: Uuid,
+    pub author_id: Uuid,
+    pub content: Option<String>,
+    pub created_at: String,
+    pub edited_at: Option<String>,
+    pub author: Option<UserPublic>,
+    pub attachments: Vec<Attachment>,
+    pub reactions: Vec<ReactionGroup>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CreateDmRequest {
+    pub recipient_username: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CreateDmMessageRequest {
+    pub content: Option<String>,
+}

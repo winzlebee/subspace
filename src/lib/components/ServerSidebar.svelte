@@ -5,10 +5,11 @@
     showCreateServer,
     showSettings,
     currentUser,
+    isDmMode,
   } from "$lib/stores";
   import { getFileUrl } from "$lib/api";
 
-  let { onSelectServer }: { onSelectServer: (id: string) => void } = $props();
+  let { onSelectServer, onSelectDm }: { onSelectServer: (id: string) => void; onSelectDm: () => void } = $props();
 
   function getInitials(name: string): string {
     return name
@@ -23,6 +24,41 @@
 <div
   class="flex flex-col items-center w-[72px] bg-base-300 py-3 gap-2 shrink-0 overflow-y-auto"
 >
+  <!-- Direct Messages Icon -->
+  <div class="indicator">
+    {#if $isDmMode}
+      <span
+        class="absolute -left-1 top-1/2 -translate-y-1/2 w-1 h-8 bg-base-content rounded-r-full"
+      ></span>
+    {/if}
+    <button
+      class="w-12 h-12 rounded-[24px] flex items-center justify-center text-sm font-semibold transition-all duration-200
+        {$isDmMode
+        ? 'bg-primary text-primary-content rounded-xl'
+        : 'bg-base-100 text-base-content hover:bg-primary/30 hover:text-primary hover:rounded-xl'}"
+      title="Direct Messages"
+      onclick={onSelectDm}
+    >
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        class="h-6 w-6"
+        fill="none"
+        viewBox="0 0 24 24"
+        stroke="currentColor"
+      >
+        <path
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          stroke-width="2"
+          d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
+        />
+      </svg>
+    </button>
+  </div>
+
+  <!-- Divider -->
+  <div class="w-8 h-[2px] bg-base-content/20 rounded-full"></div>
+
   <!-- Server list -->
   {#each $servers as server (server.id)}
     <div class="indicator">

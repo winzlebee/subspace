@@ -24,6 +24,10 @@
     showSettings,
     showCreateServer,
     voiceChannelId,
+    isDmMode,
+    currentDmConversationId,
+    currentDmConversation,
+    dmMessages,
   } from "$lib/stores";
   import { toasts, addToast } from "$lib/stores/toasts";
   import { APP_NAME } from "$lib/config";
@@ -37,6 +41,8 @@
   import CreateServer from "./CreateServer.svelte";
   import VoiceRoom from "./VoiceRoom.svelte";
   import NoChannelSelected from "./NoChannelSelected.svelte";
+  import DirectMessages from "./DirectMessages.svelte";
+  import DmMessageArea from "./DmMessageArea.svelte";
 
   let loading = $state(true);
   let initError = $state("");
@@ -71,6 +77,7 @@
   }
 
   async function selectServer(id: string) {
+    isDmMode.set(false);
     currentServerId.set(id);
     showMobileSidebar = false;
     try {
@@ -101,6 +108,26 @@
       messages.set(msgs);
     } catch (e: any) {
       addToast("Failed to load messages");
+    }
+  }
+
+  function selectDm() {
+    isDmMode.set(true);
+    currentServerId.set(null);
+    currentChannelId.set(null);
+    currentDmConversationId.set(null);
+    showMobileSidebar = false;
+  }
+
+  async function selectDmConversation(id: string) {
+    currentDmConversationId.set(id);
+    showMobileSidebar = false;
+    try {
+      const { getDmMessages } = await import("$lib/api");
+      const msgs = await getDmMessages(id);
+      dmMessages.set(msgs);
+    } catch (e: any) {
+      addToast("Failed to load DM messages");
     }
   }
 </script>
@@ -210,7 +237,7 @@
 
     <!-- Server sidebar -->
     <div class="hidden md:flex">
-      <ServerSidebar onSelectServer={selectServer} />
+      <ServerSidebar onSelectServer={selectServer} onSelectDm={selectDm} />
     </div>
 
     <!-- Mobile sidebar overlay -->
@@ -222,15 +249,21 @@
         role="button"
       ></div>
       <div class="md:hidden fixed left-0 top-0 bottom-0 z-30 flex">
-        <ServerSidebar onSelectServer={selectServer} />
-        {#if $currentServer}
+        <ServerSidebar onSelectServer={selectServer} onSelectDm={selectDm} />
+        {#if $isDmMode}
+          <DirectMessages onSelectConversation={selectDmConversation} />
+        {:else if $currentServer}
           <ChannelList onSelectChannel={selectChannel} />
         {/if}
       </div>
     {/if}
 
-    <!-- Channel list (desktop) -->
-    {#if $currentServer}
+    <!-- DM list or Channel list (desktop) -->
+    {#if $isDmMode}
+      <div class="hidden md:flex">
+        <DirectMessages onSelectConversation={selectDmConversation} />
+      </div>
+    {:else if $currentServer}
       <div class="hidden md:flex">
         <ChannelList onSelectChannel={selectChannel} />
       </div>
@@ -238,7 +271,30 @@
 
     <!-- Message area -->
     <div class="flex-1 flex flex-col min-w-0 overflow-hidden">
-      {#if $currentChannel && $currentChannel.type === "text"}
+      {#if $isDmMode && $currentDmConversation}
+        <DmMessageArea />
+      {:else if $isDmMode}
+        <div class="flex items-center justify-center h-full text-base-content/50">
+          <div class="text-center">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              class="h-16 w-16 mx-auto mb-4 opacity-50"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="1.5"
+                d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
+              />
+            </svg>
+            <p class="text-lg font-semibold mb-2">Your Direct Messages</p>
+            <p class="text-sm">Select a conversation or start a new one</p>
+          </div>
+        </div>
+      {:else if $currentChannel && $currentChannel.type === "text"}
         <MessageArea />
       {:else if $currentChannel && $currentChannel.type === "voice"}
         <VoiceRoom />
@@ -252,8 +308,8 @@
       {/if}
     </div>
 
-    <!-- Member list (desktop) -->
-    {#if $currentServer}
+    <!-- Member list (desktop) - only show for servers, not DMs -->
+    {#if $currentServer && !$isDmMode}
       <div class="hidden md:flex">
         <MemberList />
       </div>

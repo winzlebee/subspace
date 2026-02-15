@@ -76,6 +76,16 @@ export function addTypingUser(channelId: string, user: UserPublic) {
     }, 5100);
 }
 
+// ── Direct Messages ──────────────────────────────────────────────────
+export const dmConversations = writable<import("./types").DmConversation[]>([]);
+export const currentDmConversationId = writable<string | null>(null);
+export const currentDmConversation = derived(
+    [dmConversations, currentDmConversationId],
+    ([$convs, $id]) => $convs.find((c) => c.id === $id) ?? null
+);
+export const dmMessages = writable<import("./types").DmMessage[]>([]);
+export const isDmMode = writable(false);
+
 // ── Logout ───────────────────────────────────────────────────────────
 export function logout() {
     authToken.set(null);
@@ -88,4 +98,8 @@ export function logout() {
     currentServerId.set(null);
     currentChannelId.set(null);
     voiceChannelId.set(null);
+    dmConversations.set([]);
+    currentDmConversationId.set(null);
+    dmMessages.set([]);
+    isDmMode.set(false);
 }

@@ -1,6 +1,6 @@
 import { get } from "svelte/store";
-import { authToken, currentUser, currentChannelId, currentServerId, messages, pinnedMessages, voiceStates, voiceChannelId, addTypingUser, members } from "./stores";
-import type { WsEnvelope, Message, VoiceState } from "./types";
+import { authToken, currentUser, currentChannelId, currentServerId, messages, pinnedMessages, voiceStates, voiceChannelId, addTypingUser, members, dmMessages, currentDmConversationId } from "./stores";
+import type { WsEnvelope, Message, VoiceState, DmMessage } from "./types";
 import { getServerUrl } from "./api";
 
 function getWsUrl(): string {
@@ -216,6 +216,55 @@ function handleMessage(env: WsEnvelope) {
                 window.dispatchEvent(new CustomEvent("webrtc_signal", { detail: env }));
             }
             break;
+
+        case "dm_message_created": {
+            const msg: DmMessage = env.payload.message;
+            const currentConv = get(currentDmConversationId);
+            if (msg.conversation_id === currentConv) {
+                dmMessages.update((msgs) => {
+                    if (msgs.some((m) => m.id === msg.id)) return msgs;
+                    return [...msgs, msg];
+                });
+            }
+            // Desktop notification if window not focused and not own message
+            const me = get(currentUser);
+            if (me && msg.author_id !== me.id && !document.hasFocus()) {
+                showNotification(msg.author?.username ?? "Someone", msg.content ?? "");
+            }
+            break;
+        }
+
+        case "dm_message_deleted": {
+            const { message_id } = env.payload;
+            dmMessages.update((msgs) => msgs.filter((m) => m.id !== message_id));
+            break;
+        }
+
+        case "dm_message_updated": {
+            const { message_id, content, edited_at } = env.payload;
+            dmMessages.update((msgs) =>
+                msgs.map((m) =>
+                    m.id === message_id
+                        ? {
+                            ...m,
+                            content: content ?? m.content,
+                            edited_at: edited_at ?? m.edited_at,
+                        }
+                        : m,
+                ),
+            );
+            break;
+        }
+
+        case "dm_reaction_updated": {
+            const { message_id, reactions } = env.payload;
+            dmMessages.update((msgs) =>
+                msgs.map((m) =>
+                    m.id === message_id ? { ...m, reactions } : m
+                )
+            );
+            break;
+        }
 
         case "error":
             console.error("WS error:", env.payload.message);

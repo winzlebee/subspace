@@ -700,6 +700,261 @@ impl Database {
             Err(e) => Err(e),
         }
     }
+
+    // ── DM queries ───────────────────────────────────────────────────────
+
+    pub fn get_dm_conversations(&self, user_id: &str) -> Result<Vec<DmConversationRow>, rusqlite::Error> {
+        let conn = self.conn.lock().unwrap();
+        let mut stmt = conn.prepare(
+            "SELECT dc.id, dc.user1_id, dc.user2_id, dc.created_at, dc.updated_at,
+                    u.id as other_user_id, u.username as other_username, u.avatar_url as other_avatar_url
+             FROM dm_conversations dc
+             JOIN users u ON (CASE WHEN dc.user1_id = ?1 THEN dc.user2_id = u.id ELSE dc.user1_id = u.id END)
+             WHERE dc.user1_id = ?1 OR dc.user2_id = ?1
+             ORDER BY dc.updated_at DESC",
+        )?;
+        let rows = stmt
+            .query_map(params![user_id], |row| {
+                Ok(DmConversationRow {
+                    id: row.get(0)?,
+                    user1_id: row.get(1)?,
+                    user2_id: row.get(2)?,
+                    created_at: row.get(3)?,
+                    updated_at: row.get(4)?,
+                    other_user_id: row.get(5)?,
+                    other_username: row.get(6)?,
+                    other_avatar_url: row.get(7)?,
+                })
+            })?
+            .collect::<Result<Vec<_>, _>>()?;
+        Ok(rows)
+    }
+
+    pub fn get_dm_conversation(&self, user1_id: &str, user2_id: &str) -> Result<Option<DmConversationRow>, rusqlite::Error> {
+        let conn = self.conn.lock().unwrap();
+        let result = conn.query_row(
+            "SELECT id, user1_id, user2_id, created_at, updated_at FROM dm_conversations WHERE user1_id = ?1 AND user2_id = ?2",
+            params![user1_id, user2_id],
+            |row| {
+                Ok(DmConversationRow {
+                    id: row.get(0)?,
+                    user1_id: row.get(1)?,
+                    user2_id: row.get(2)?,
+                    created_at: row.get(3)?,
+                    updated_at: row.get(4)?,
+                    other_user_id: String::new(),
+                    other_username: String::new(),
+                    other_avatar_url: None,
+                })
+            },
+        );
+        match result {
+            Ok(row) => Ok(Some(row)),
+            Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
+            Err(e) => Err(e),
+        }
+    }
+
+    pub fn create_dm_conversation(&self, id: &Uuid, user1_id: &str, user2_id: &str) -> Result<(), rusqlite::Error> {
+        let conn = self.conn.lock().unwrap();
+        conn.execute(
+            "INSERT INTO dm_conversations (id, user1_id, user2_id) VALUES (?1, ?2, ?3)",
+            params![id.to_string(), user1_id, user2_id],
+        )?;
+        Ok(())
+    }
+
+    pub fn get_dm_messages(&self, conversation_id: &str) -> Result<Vec<DmMessageRow>, rusqlite::Error> {
+        let conn = self.conn.lock().unwrap();
+        let mut stmt = conn.prepare(
+            "SELECT dm.id, dm.conversation_id, dm.author_id, dm.content, dm.created_at, dm.edited_at,
+                    u.username, u.avatar_url
+             FROM dm_messages dm
+             JOIN users u ON dm.author_id = u.id
+             WHERE dm.conversation_id = ?1
+             ORDER BY dm.created_at ASC
+             LIMIT 100",
+        )?;
+        let rows = stmt
+            .query_map(params![conversation_id], |row| {
+                Ok(DmMessageRow {
+                    id: row.get(0)?,
+                    conversation_id: row.get(1)?,
+                    author_id: row.get(2)?,
+                    content: row.get(3)?,
+                    created_at: row.get(4)?,
+                    edited_at: row.get(5)?,
+                    author_username: row.get(6)?,
+                    author_avatar_url: row.get(7)?,
+                })
+            })?
+            .collect::<Result<Vec<_>, _>>()?;
+        Ok(rows)
+    }
+
+    pub fn get_last_dm_message(&self, conversation_id: &str) -> Result<Option<DmMessageRow>, rusqlite::Error> {
+        let conn = self.conn.lock().unwrap();
+        let result = conn.query_row(
+            "SELECT dm.id, dm.conversation_id, dm.author_id, dm.content, dm.created_at, dm.edited_at,
+                    u.username, u.avatar_url
+             FROM dm_messages dm
+             JOIN users u ON dm.author_id = u.id
+             WHERE dm.conversation_id = ?1
+             ORDER BY dm.created_at DESC
+             LIMIT 1",
+            params![conversation_id],
+            |row| {
+                Ok(DmMessageRow {
+                    id: row.get(0)?,
+                    conversation_id: row.get(1)?,
+                    author_id: row.get(2)?,
+                    content: row.get(3)?,
+                    created_at: row.get(4)?,
+                    edited_at: row.get(5)?,
+                    author_username: row.get(6)?,
+                    author_avatar_url: row.get(7)?,
+                })
+            },
+        );
+        match result {
+            Ok(row) => Ok(Some(row)),
+            Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
+            Err(e) => Err(e),
+        }
+    }
+
+    pub fn create_dm_message(&self, id: &Uuid, conversation_id: &str, author_id: &str, content: Option<&str>) -> Result<DmMessageRow, rusqlite::Error> {
+        let conn = self.conn.lock().unwrap();
+        conn.execute(
+            "INSERT INTO dm_messages (id, conversation_id, author_id, content) VALUES (?1, ?2, ?3, ?4)",
+            params![id.to_string(), conversation_id, author_id, content],
+        )?;
+        conn.execute(
+            "UPDATE dm_conversations SET updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') WHERE id = ?1",
+            params![conversation_id],
+        )?;
+        let mut stmt = conn.prepare(
+            "SELECT dm.id, dm.conversation_id, dm.author_id, dm.content, dm.created_at, dm.edited_at,
+                    u.username, u.avatar_url
+             FROM dm_messages dm JOIN users u ON dm.author_id = u.id
+             WHERE dm.id = ?1",
+        )?;
+        stmt.query_row(params![id.to_string()], |row| {
+            Ok(DmMessageRow {
+                id: row.get(0)?,
+                conversation_id: row.get(1)?,
+                author_id: row.get(2)?,
+                content: row.get(3)?,
+                created_at: row.get(4)?,
+                edited_at: row.get(5)?,
+                author_username: row.get(6)?,
+                author_avatar_url: row.get(7)?,
+            })
+        })
+    }
+
+    pub fn edit_dm_message(&self, message_id: &str, content: &str) -> Result<(), rusqlite::Error> {
+        let conn = self.conn.lock().unwrap();
+        conn.execute(
+            "UPDATE dm_messages SET content = ?1, edited_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') WHERE id = ?2",
+            params![content, message_id],
+        )?;
+        Ok(())
+    }
+
+    pub fn delete_dm_message(&self, message_id: &str) -> Result<(), rusqlite::Error> {
+        let conn = self.conn.lock().unwrap();
+        conn.execute("DELETE FROM dm_messages WHERE id = ?1", params![message_id])?;
+        Ok(())
+    }
+
+    pub fn get_dm_message_info(&self, message_id: &str) -> Result<Option<(String, String)>, rusqlite::Error> {
+        let conn = self.conn.lock().unwrap();
+        let result = conn.query_row(
+            "SELECT author_id, conversation_id FROM dm_messages WHERE id = ?1",
+            params![message_id],
+            |row| Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?)),
+        );
+        match result {
+            Ok(info) => Ok(Some(info)),
+            Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
+            Err(e) => Err(e),
+        }
+    }
+
+    pub fn get_dm_conversation_users(&self, conversation_id: &str) -> Result<Option<(String, String)>, rusqlite::Error> {
+        let conn = self.conn.lock().unwrap();
+        let result = conn.query_row(
+            "SELECT user1_id, user2_id FROM dm_conversations WHERE id = ?1",
+            params![conversation_id],
+            |row| Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?)),
+        );
+        match result {
+            Ok(users) => Ok(Some(users)),
+            Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
+            Err(e) => Err(e),
+        }
+    }
+
+    pub fn add_dm_reaction(&self, message_id: &str, user_id: &str, emoji: &str) -> Result<(), rusqlite::Error> {
+        let conn = self.conn.lock().unwrap();
+        conn.execute(
+            "INSERT OR IGNORE INTO dm_reactions (message_id, user_id, emoji) VALUES (?1, ?2, ?3)",
+            params![message_id, user_id, emoji],
+        )?;
+        Ok(())
+    }
+
+    pub fn remove_dm_reaction(&self, message_id: &str, user_id: &str, emoji: &str) -> Result<(), rusqlite::Error> {
+        let conn = self.conn.lock().unwrap();
+        conn.execute(
+            "DELETE FROM dm_reactions WHERE message_id = ?1 AND user_id = ?2 AND emoji = ?3",
+            params![message_id, user_id, emoji],
+        )?;
+        Ok(())
+    }
+
+    pub fn get_dm_reactions(&self, message_id: &str, current_user_id: &str) -> Result<Vec<ReactionGroupRow>, rusqlite::Error> {
+        let conn = self.conn.lock().unwrap();
+        let mut stmt = conn.prepare(
+            "SELECT emoji, COUNT(*) as cnt,
+                    MAX(CASE WHEN user_id = ?2 THEN 1 ELSE 0 END) as me
+             FROM dm_reactions WHERE message_id = ?1
+             GROUP BY emoji",
+        )?;
+        let rows = stmt
+            .query_map(params![message_id, current_user_id], |row| {
+                Ok(ReactionGroupRow {
+                    emoji: row.get(0)?,
+                    count: row.get(1)?,
+                    me: row.get::<_, i32>(2)? != 0,
+                })
+            })?
+            .collect::<Result<Vec<_>, _>>()?;
+        Ok(rows)
+    }
+
+    pub fn get_dm_attachments(&self, message_id: &str) -> Result<Vec<AttachmentRow>, rusqlite::Error> {
+        let conn = self.conn.lock().unwrap();
+        let mut stmt = conn.prepare(
+            "SELECT id, message_id, file_url, file_name, mime_type, size_bytes, created_at
+             FROM dm_attachments WHERE message_id = ?1",
+        )?;
+        let rows = stmt
+            .query_map(params![message_id], |row| {
+                Ok(AttachmentRow {
+                    id: row.get(0)?,
+                    message_id: row.get(1)?,
+                    file_url: row.get(2)?,
+                    file_name: row.get(3)?,
+                    mime_type: row.get(4)?,
+                    size_bytes: row.get(5)?,
+                    created_at: row.get(6)?,
+                })
+            })?
+            .collect::<Result<Vec<_>, _>>()?;
+        Ok(rows)
+    }
 }
 
 // ── Row types ────────────────────────────────────────────────────────────────
@@ -788,4 +1043,28 @@ pub struct VoiceStateRow {
     pub joined_at: String,
     pub username: String,
     pub avatar_url: Option<String>,
+}
+
+#[derive(Debug, Clone)]
+pub struct DmConversationRow {
+    pub id: String,
+    pub user1_id: String,
+    pub user2_id: String,
+    pub created_at: String,
+    pub updated_at: String,
+    pub other_user_id: String,
+    pub other_username: String,
+    pub other_avatar_url: Option<String>,
+}
+
+#[derive(Debug, Clone)]
+pub struct DmMessageRow {
+    pub id: String,
+    pub conversation_id: String,
+    pub author_id: String,
+    pub content: Option<String>,
+    pub created_at: String,
+    pub edited_at: Option<String>,
+    pub author_username: String,
+    pub author_avatar_url: Option<String>,
 }

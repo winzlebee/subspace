@@ -111,3 +111,27 @@ export interface SignalIcePayload {
     sdp_mid: string | null;
     sdp_mline_index: number | null;
 }
+
+// ── Direct Messages ──────────────────────────────────────────────────
+
+export interface DmConversation {
+    id: string;
+    user1_id: string;
+    user2_id: string;
+    other_user: UserPublic;
+    last_message: DmMessage | null;
+    created_at: string;
+    updated_at: string;
+}
+
+export interface DmMessage {
+    id: string;
+    conversation_id: string;
+    author_id: string;
+    content: string | null;
+    created_at: string;
+    edited_at: string | null;
+    author: UserPublic | null;
+    attachments: Attachment[];
+    reactions: ReactionGroup[];
+}

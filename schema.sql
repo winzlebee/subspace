@@ -134,3 +134,64 @@ CREATE TABLE IF NOT EXISTS voice_states (
 );
 
 CREATE INDEX IF NOT EXISTS idx_voice_states_channel ON voice_states(channel_id);
+
+--------------------------------------------------------------------------------
+-- Direct Message Conversations
+-- Represents a DM conversation between two users
+--------------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS dm_conversations (
+    id          TEXT PRIMARY KEY,               -- UUID
+    user1_id    TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    user2_id    TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    created_at  TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+    updated_at  TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+    UNIQUE(user1_id, user2_id),
+    CHECK(user1_id < user2_id)  -- Ensure consistent ordering
+);
+
+CREATE INDEX IF NOT EXISTS idx_dm_conversations_user1 ON dm_conversations(user1_id);
+CREATE INDEX IF NOT EXISTS idx_dm_conversations_user2 ON dm_conversations(user2_id);
+
+--------------------------------------------------------------------------------
+-- Direct Messages
+-- Messages sent in DM conversations
+--------------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS dm_messages (
+    id              TEXT PRIMARY KEY,               -- UUID
+    conversation_id TEXT    NOT NULL REFERENCES dm_conversations(id) ON DELETE CASCADE,
+    author_id       TEXT    NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    content         TEXT,                            -- markdown text (nullable for media-only)
+    created_at      TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+    edited_at       TEXT                             -- NULL until edited
+);
+
+CREATE INDEX IF NOT EXISTS idx_dm_messages_conversation ON dm_messages(conversation_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_dm_messages_author ON dm_messages(author_id);
+
+--------------------------------------------------------------------------------
+-- DM Message Attachments
+--------------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS dm_attachments (
+    id         TEXT PRIMARY KEY,               -- UUID
+    message_id TEXT NOT NULL REFERENCES dm_messages(id) ON DELETE CASCADE,
+    file_url   TEXT NOT NULL,
+    file_name  TEXT NOT NULL,
+    mime_type  TEXT NOT NULL,
+    size_bytes INTEGER,
+    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_dm_attachments_message ON dm_attachments(message_id);
+
+--------------------------------------------------------------------------------
+-- DM Reactions
+--------------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS dm_reactions (
+    message_id TEXT NOT NULL REFERENCES dm_messages(id) ON DELETE CASCADE,
+    user_id    TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    emoji      TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+    PRIMARY KEY (message_id, user_id, emoji)
+);
+
+CREATE INDEX IF NOT EXISTS idx_dm_reactions_message ON dm_reactions(message_id);
