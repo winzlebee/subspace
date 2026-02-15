@@ -642,7 +642,7 @@
         </div>
 
         <!-- Input -->
-        <div class="px-4 pb-4 shrink-0">
+        <div class="px-4 pb-4 shrink-0" style="padding-bottom: max(1rem, env(safe-area-inset-bottom));">
             <!-- Typing Indicator -->
             {#if typingList.length > 0}
                 <div

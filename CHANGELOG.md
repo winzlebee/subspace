@@ -8,6 +8,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 
+## [0.6.2] - 2026-02-15
+
+- Fix mobile web view formatting
+- Add android apk build guide
+
+
 ## [0.6.1] - 2026-02-15
 
 - Add version number display for client and server to user settings UI

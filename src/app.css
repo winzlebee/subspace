@@ -50,12 +50,38 @@
 }
 
 /* ── Global styles ────────────────────────────────────────────────── */
+
+/* Fix for mobile viewport height - accounts for browser UI */
+:root {
+  /* JavaScript fallback using window.innerHeight */
+  --vh: 1vh;
+  /* Fallback for browsers that don't support dvh */
+  --app-height: 100vh;
+  --app-height: calc(var(--vh, 1vh) * 100);
+  /* Use dynamic viewport height on supported browsers */
+  --app-height: 100dvh;
+}
+
 html,
 body {
   height: 100%;
   margin: 0;
   overflow: hidden;
   font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
+  /* Prevent overscroll bounce on mobile */
+  overscroll-behavior: none;
+  /* Ensure proper touch handling */
+  touch-action: pan-x pan-y;
+}
+
+/* Mobile-specific fixes */
+@supports (-webkit-touch-callout: none) {
+  /* iOS Safari specific fixes */
+  body {
+    /* Prevent iOS Safari from bouncing */
+    position: fixed;
+    width: 100%;
+  }
 }
 
 /* Scrollbar styling */
