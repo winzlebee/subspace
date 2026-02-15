@@ -26,7 +26,15 @@ Subspace is designed for small communities where everyone already knows and trus
 ## Running locally
 
 ```bash
+# Install C Compiler
+sudo apt-get update && sudo apt-get install -y build-essential
+
+# Install Rust & Carbo
+curl https://sh.rustup.rs -sSf | sh
+
 # Install dependencies
+sudo apt-get install -y pkg-config libsoup-3.0-dev libgtk-3-dev libjavascriptcoregtk-4.1-dev libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf libpango1.0-dev
+
 npm install
 
 # Run the server

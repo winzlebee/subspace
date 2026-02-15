@@ -8,6 +8,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 
+## [0.6.1] - 2026-02-15
+
+- Add version number display for client and server to user settings UI
+- Add API endpoint for server version
+- Update README with more complete local dev setup instructions
+
+
 ## [0.6.0] - 2026-02-15
 
 ### Fixed

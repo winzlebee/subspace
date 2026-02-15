@@ -3,6 +3,7 @@ pub mod messages;
 pub mod servers;
 pub mod users;
 pub mod turn;
+pub mod version;
 
 use std::sync::Arc;
 use axum::{
@@ -25,7 +26,8 @@ async fn require_auth(
 pub fn api_routes(state: Arc<AppState>) -> Router<Arc<AppState>> {
     let public = Router::new()
         .route("/register", axum::routing::post(auth::register))
-        .route("/login", axum::routing::post(auth::login));
+        .route("/login", axum::routing::post(auth::login))
+        .route("/version", axum::routing::get(version::get_version));
 
     let protected = Router::new()
         .route("/me", axum::routing::get(users::get_me))

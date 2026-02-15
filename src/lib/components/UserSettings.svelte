@@ -1,6 +1,6 @@
 <script lang="ts">
     import { showSettings, currentUser, theme, logout } from "$lib/stores";
-    import { updateMe, uploadFile, getFileUrl } from "$lib/api";
+    import { updateMe, uploadFile, getFileUrl, getServerVersion } from "$lib/api";
     import {
         getAudioDevices,
         audioInputDeviceId,
@@ -14,6 +14,8 @@
     let saving = $state(false);
     let avatarUploading = $state(false);
     let activeTab = $state("account"); // 'account' | 'voice'
+    let serverVersion = $state<string | null>(null);
+    let clientVersion = $state<string>(__APP_VERSION__);
 
     // Audio Settings
     let audioInputs: MediaDeviceInfo[] = $state([]);
@@ -141,6 +143,16 @@
         }
     });
 
+    onMount(async () => {
+        try {
+            const versionData = await getServerVersion();
+            serverVersion = versionData.version;
+        } catch (e) {
+            console.error("Failed to fetch server version:", e);
+            serverVersion = "Unknown";
+        }
+    });
+
     onDestroy(() => {
         stopMicTest();
         // Event listener might stick if we destoryed while on voice tab, but svelte handles component unmount cleanup well usually
@@ -196,6 +208,24 @@
             >
                 Log Out
             </button>
+
+            <!-- Version Info -->
+            <div class="mt-auto pt-4 px-2 text-xs text-base-content/50 space-y-1">
+                <div class="flex justify-between">
+                    <span>Client:</span>
+                    <span class="font-mono">v{clientVersion}</span>
+                </div>
+                <div class="flex justify-between">
+                    <span>Server:</span>
+                    <span class="font-mono">
+                        {#if serverVersion === null}
+                            <span class="loading loading-spinner loading-xs"></span>
+                        {:else}
+                            v{serverVersion}
+                        {/if}
+                    </span>
+                </div>
+            </div>
         </div>
 
         <!-- Content -->

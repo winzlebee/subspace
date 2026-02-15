@@ -207,3 +207,9 @@ export async function uploadFile(file: File): Promise<{ url: string; file_name: 
 export async function getTurnCredentials(): Promise<{ uris: string[], username: string; credential: string }> {
     return request("/turn");
 }
+
+// ── Version ──────────────────────────────────────────────────────────
+
+export async function getServerVersion(): Promise<{ version: string }> {
+    return request("/version");
+}
