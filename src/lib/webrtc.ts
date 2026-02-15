@@ -64,6 +64,48 @@ export const localVideoStream = writable<MediaStream | null>(null);
 export const localScreenStream = writable<MediaStream | null>(null);
 export const webrtcError = writable<string | null>(null);
 
+// ── Connection Diagnostics ───────────────────────────────────────────────────
+export interface ConnectionDiagnostics {
+    userId: string;
+    username: string;
+    connectionType: "direct" | "relay" | "unknown";
+    connectionState: RTCPeerConnectionState;
+    iceConnectionState: RTCIceConnectionState;
+    localCandidate: string | null;
+    remoteCandidate: string | null;
+    bytesReceived: number;
+    bytesSent: number;
+    packetsReceived: number;
+    packetsSent: number;
+    currentRoundTripTime: number | null;
+    availableIncomingBitrate: number | null;
+    availableOutgoingBitrate: number | null;
+    detailedStatus: string;
+}
+
+export const connectionDiagnostics = writable<Record<string, ConnectionDiagnostics>>({});
+
+// Overall voice connection status
+export interface VoiceConnectionStatus {
+    inVoiceChannel: boolean;
+    isAlone: boolean;
+    turnServerConnected: boolean;
+    turnServerStatus: "not-needed" | "connecting" | "connected" | "failed";
+    activeConnections: number;
+    statusMessage: string;
+}
+
+export const voiceConnectionStatus = writable<VoiceConnectionStatus>({
+    inVoiceChannel: false,
+    isAlone: true,
+    turnServerConnected: false,
+    turnServerStatus: "not-needed",
+    activeConnections: 0,
+    statusMessage: "Not in voice channel"
+});
+
+let diagnosticsInterval: ReturnType<typeof setInterval> | null = null;
+
 // ── Audio Settings ───────────────────────────────────────────────────────────
 export const audioInputDeviceId = writable<string | null>(localStorage.getItem("audioInputDeviceId"));
 export const audioOutputDeviceId = writable<string | null>(localStorage.getItem("audioOutputDeviceId"));
@@ -404,7 +446,10 @@ export function leaveVoice() {
     stopSpeakingCheckLoop();
     stopAudioContext();
 
-    // 5. Remove listeners
+    // 5. Stop diagnostics collection
+    stopDiagnosticsCollection();
+
+    // 6. Remove listeners
     window.removeEventListener("webrtc_signal", handleSignal as unknown as EventListener);
 }
 
@@ -641,4 +686,272 @@ async function handleSignal(event: CustomEvent) {
             }
         }
     }
+}
+
+// ── Diagnostics Collection ──────────────────────────────────────────────────
+
+function generateDetailedStatus(
+    connectionState: RTCPeerConnectionState,
+    iceConnectionState: RTCIceConnectionState,
+    connectionType: "direct" | "relay" | "unknown",
+    hasReceivedData: boolean
+): string {
+    // Handle failed states first
+    if (connectionState === "failed" || iceConnectionState === "failed") {
+        if (connectionType === "relay" || iceConnectionState === "failed") {
+            return "Connection failed - TURN server unreachable or misconfigured";
+        }
+        return "Connection failed - unable to establish peer connection";
+    }
+
+    if (connectionState === "closed") {
+        return "Connection closed";
+    }
+
+    if (connectionState === "disconnected") {
+        return "Connection lost - attempting to reconnect";
+    }
+
+    // Handle connecting states
+    if (connectionState === "connecting" || connectionState === "new") {
+        if (iceConnectionState === "checking") {
+            return "Establishing connection - testing network paths";
+        }
+        if (iceConnectionState === "new") {
+            return "Initializing connection";
+        }
+        return "Connecting to peer";
+    }
+
+    // Handle connected states
+    if (connectionState === "connected") {
+        if (!hasReceivedData) {
+            if (connectionType === "relay") {
+                return "Connected via TURN relay - syncing audio stream";
+            }
+            return "Connected - syncing audio stream";
+        }
+
+        if (connectionType === "relay") {
+            return "Connected and streaming via TURN relay server";
+        }
+        if (connectionType === "direct") {
+            return "Connected and streaming (peer-to-peer)";
+        }
+        return "Connected and streaming";
+    }
+
+    // Default fallback
+    return `Connection state: ${connectionState} (ICE: ${iceConnectionState})`;
+}
+
+function updateOverallVoiceStatus() {
+    const channelId = get(voiceChannelId);
+    const states = get(voiceStates);
+    const myId = get(currentUser)?.id;
+
+    if (!channelId || !myId) {
+        voiceConnectionStatus.set({
+            inVoiceChannel: false,
+            isAlone: true,
+            turnServerConnected: false,
+            turnServerStatus: "not-needed",
+            activeConnections: 0,
+            statusMessage: "Not in voice channel"
+        });
+        return;
+    }
+
+    const usersInChannel = states[channelId] || [];
+    const otherUsers = usersInChannel.filter(s => s.user_id !== myId);
+    const isAlone = otherUsers.length === 0;
+
+    if (isAlone) {
+        voiceConnectionStatus.set({
+            inVoiceChannel: true,
+            isAlone: true,
+            turnServerConnected: false,
+            turnServerStatus: "not-needed",
+            activeConnections: 0,
+            statusMessage: "In voice channel (alone - no connections needed)"
+        });
+        return;
+    }
+
+    // Check peer connections
+    const activeConnections = Object.keys(peerConnections).length;
+    const connectedCount = Object.values(peerConnections).filter(
+        pc => pc.connectionState === "connected"
+    ).length;
+    const connectingCount = Object.values(peerConnections).filter(
+        pc => pc.connectionState === "connecting" || pc.connectionState === "new"
+    ).length;
+    const failedCount = Object.values(peerConnections).filter(
+        pc => pc.connectionState === "failed"
+    ).length;
+
+    // Check if any connection is using TURN relay
+    let turnServerStatus: "not-needed" | "connecting" | "connected" | "failed" = "not-needed";
+    let turnServerConnected = false;
+
+    const diags = get(connectionDiagnostics);
+    const hasRelayConnection = Object.values(diags).some(d => d.connectionType === "relay");
+    const hasFailedConnection = failedCount > 0;
+
+    if (hasRelayConnection) {
+        turnServerStatus = "connected";
+        turnServerConnected = true;
+    } else if (connectingCount > 0) {
+        // Might need TURN, still establishing
+        turnServerStatus = "connecting";
+    } else if (hasFailedConnection) {
+        turnServerStatus = "failed";
+    }
+
+    // Generate status message
+    let statusMessage = "";
+    if (failedCount > 0) {
+        statusMessage = `${failedCount} connection(s) failed - check TURN server configuration`;
+    } else if (connectedCount === otherUsers.length) {
+        if (hasRelayConnection) {
+            statusMessage = `Connected to ${connectedCount} user(s) via TURN relay`;
+        } else {
+            statusMessage = `Connected to ${connectedCount} user(s) (peer-to-peer)`;
+        }
+    } else if (connectingCount > 0) {
+        statusMessage = `Connecting to ${connectingCount} user(s)...`;
+    } else {
+        statusMessage = `${connectedCount}/${otherUsers.length} connections established`;
+    }
+
+    voiceConnectionStatus.set({
+        inVoiceChannel: true,
+        isAlone: false,
+        turnServerConnected,
+        turnServerStatus,
+        activeConnections: connectedCount,
+        statusMessage
+    });
+}
+
+async function collectDiagnostics() {
+    const diagnostics: Record<string, ConnectionDiagnostics> = {};
+    const states = get(voiceStates);
+    const channelId = get(voiceChannelId);
+    
+    if (!channelId) return;
+    
+    const usersInChannel = states[channelId] || [];
+
+    for (const [userId, pc] of Object.entries(peerConnections)) {
+        const userState = usersInChannel.find(s => s.user_id === userId);
+        const username = userState?.username || "Unknown";
+
+        try {
+            const stats = await pc.getStats();
+            let localCandidate: string | null = null;
+            let remoteCandidate: string | null = null;
+            let connectionType: "direct" | "relay" | "unknown" = "unknown";
+            let bytesReceived = 0;
+            let bytesSent = 0;
+            let packetsReceived = 0;
+            let packetsSent = 0;
+            let currentRoundTripTime: number | null = null;
+            let availableIncomingBitrate: number | null = null;
+            let availableOutgoingBitrate: number | null = null;
+
+            stats.forEach((report) => {
+                if (report.type === "candidate-pair" && report.state === "succeeded") {
+                    // Get the active candidate pair
+                    const localCandidateId = report.localCandidateId;
+                    const remoteCandidateId = report.remoteCandidateId;
+
+                    // Find the actual candidate info
+                    stats.forEach((r) => {
+                        if (r.id === localCandidateId && r.type === "local-candidate") {
+                            localCandidate = `${r.candidateType} (${r.protocol})`;
+                            if (r.address) localCandidate += ` ${r.address}:${r.port}`;
+                        }
+                        if (r.id === remoteCandidateId && r.type === "remote-candidate") {
+                            remoteCandidate = `${r.candidateType} (${r.protocol})`;
+                            if (r.address) remoteCandidate += ` ${r.address}:${r.port}`;
+                        }
+                    });
+
+                    // Determine connection type
+                    if (localCandidate?.includes("relay") || remoteCandidate?.includes("relay")) {
+                        connectionType = "relay";
+                    } else if (localCandidate && remoteCandidate) {
+                        connectionType = "direct";
+                    }
+
+                    currentRoundTripTime = report.currentRoundTripTime || null;
+                    availableIncomingBitrate = report.availableIncomingBitrate || null;
+                    availableOutgoingBitrate = report.availableOutgoingBitrate || null;
+                }
+
+                if (report.type === "inbound-rtp" && report.kind === "audio") {
+                    bytesReceived += report.bytesReceived || 0;
+                    packetsReceived += report.packetsReceived || 0;
+                }
+
+                if (report.type === "outbound-rtp" && report.kind === "audio") {
+                    bytesSent += report.bytesSent || 0;
+                    packetsSent += report.packetsSent || 0;
+                }
+            });
+
+            // Generate detailed status message
+            const detailedStatus = generateDetailedStatus(
+                pc.connectionState,
+                pc.iceConnectionState,
+                connectionType,
+                bytesReceived > 0
+            );
+
+            diagnostics[userId] = {
+                userId,
+                username,
+                connectionType,
+                connectionState: pc.connectionState,
+                iceConnectionState: pc.iceConnectionState,
+                localCandidate,
+                remoteCandidate,
+                bytesReceived,
+                bytesSent,
+                packetsReceived,
+                packetsSent,
+                currentRoundTripTime,
+                availableIncomingBitrate,
+                availableOutgoingBitrate,
+                detailedStatus,
+            };
+        } catch (e) {
+            console.error(`Failed to collect diagnostics for ${userId}:`, e);
+        }
+    }
+
+    connectionDiagnostics.set(diagnostics);
+    updateOverallVoiceStatus();
+}
+
+function startDiagnosticsCollection() {
+    if (diagnosticsInterval) return;
+    diagnosticsInterval = setInterval(collectDiagnostics, 1000);
+}
+
+function stopDiagnosticsCollection() {
+    if (diagnosticsInterval) {
+        clearInterval(diagnosticsInterval);
+        diagnosticsInterval = null;
+    }
+    connectionDiagnostics.set({});
+}
+
+export function enableDiagnostics() {
+    startDiagnosticsCollection();
+}
+
+export function disableDiagnostics() {
+    stopDiagnosticsCollection();
 }

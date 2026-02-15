@@ -15,6 +15,7 @@
     } from "$lib/api";
 
     import CloseButton from "./CloseButton.svelte";
+    import VoiceDiagnostics from "./VoiceDiagnostics.svelte";
 
     let {
         show = $bindable(false),
@@ -34,10 +35,14 @@
     // Invite
     let copied = $state(false);
 
+    // Tab management
+    let activeTab = $state<"general" | "diagnostics">("general");
+
     // Sync state when opening
     $effect(() => {
         if (show && $currentServer) {
             name = $currentServer.name;
+            activeTab = "general"; // Reset to general tab when opening
         }
     });
 
@@ -141,8 +146,29 @@
                     <CloseButton {onClose} />
                 </div>
 
-                <!-- Server Icon -->
-                <div class="flex flex-col items-center gap-4 mb-6">
+                <!-- Tabs -->
+                <div role="tablist" class="tabs tabs-boxed mb-4">
+                    <button
+                        role="tab"
+                        class="tab {activeTab === 'general' ? 'tab-active' : ''}"
+                        onclick={() => (activeTab = "general")}
+                    >
+                        General
+                    </button>
+                    <button
+                        role="tab"
+                        class="tab {activeTab === 'diagnostics'
+                            ? 'tab-active'
+                            : ''}"
+                        onclick={() => (activeTab = "diagnostics")}
+                    >
+                        Voice Diagnostics
+                    </button>
+                </div>
+
+                {#if activeTab === "general"}
+                    <!-- Server Icon -->
+                    <div class="flex flex-col items-center gap-4 mb-6">
                     <div class="relative group">
                         <div
                             class="w-24 h-24 rounded-2xl bg-base-300 flex items-center justify-center text-3xl font-bold text-base-content/50 overflow-hidden shadow-inner"
@@ -293,19 +319,31 @@
                 </div>
 
                 <div class="card-actions justify-end mt-2">
-                    <button
-                        class="btn btn-ghost"
-                        onclick={onClose}
-                        aria-label="Close">Cancel</button
-                    >
-                    <button
-                        class="btn btn-primary"
-                        onclick={handleSave}
-                        disabled={saving}
-                    >
-                        {saving ? "Saving..." : "Save Changes"}
-                    </button>
-                </div>
+                        <button
+                            class="btn btn-ghost"
+                            onclick={onClose}
+                            aria-label="Close">Cancel</button
+                        >
+                        <button
+                            class="btn btn-primary"
+                            onclick={handleSave}
+                            disabled={saving}
+                        >
+                            {saving ? "Saving..." : "Save Changes"}
+                        </button>
+                    </div>
+                {:else if activeTab === "diagnostics"}
+                    <!-- Voice Diagnostics Tab -->
+                    <VoiceDiagnostics />
+
+                    <div class="card-actions justify-end mt-4">
+                        <button
+                            class="btn btn-ghost"
+                            onclick={onClose}
+                            aria-label="Close">Close</button
+                        >
+                    </div>
+                {/if}
             </div>
         </div>
     </div>
