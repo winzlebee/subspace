@@ -8,6 +8,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 
+## [0.9.1] - 2026-02-16
+
+### Changed
+
+- Increased size of status indicators
+
+
 ## [0.9.0] - 2026-02-16
 
 ### Added
