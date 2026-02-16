@@ -13,9 +13,9 @@
     }[status?.status || 'offline'];
     
     $: sizeMap = {
-        small: '8px',
-        medium: '12px',
-        large: '16px'
+        small: '12px',
+        medium: '16px',
+        large: '20px'
     };
     
     $: statusLabel = {
