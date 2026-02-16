@@ -14,7 +14,7 @@ This document outlines recommended features to implement next for the Subspace c
 
 **Status:** Fully implemented in version 0.7.0
 
-### 2. User Status & Presence
+### 2. ✅ User Status & Presence - COMPLETED v0.9.0
 **Priority:** HIGH  
 **Complexity:** Medium  
 **Impact:** High
@@ -23,23 +23,30 @@ This document outlines recommended features to implement next for the Subspace c
 Add real-time user status indicators to show who's online, offline, away, or busy.
 
 #### Features
-- Online/Offline/Away/Do Not Disturb status indicators
-- "Last seen" timestamps for offline users
-- Activity status (e.g., "In voice channel: General")
-- Status colors/icons in member lists and DM conversations
-- Automatic status changes (e.g., idle after inactivity)
+- ✅ Online/Offline/Idle/Do Not Disturb status indicators
+- ✅ "Last seen" timestamps for offline users
+- ✅ Activity status support (e.g., "In voice channel: General")
+- ✅ Status colors/icons via StatusIndicator component
+- ✅ Automatic status changes (idle after 5 minutes of inactivity)
+- ✅ Real-time WebSocket broadcasts
+- ✅ Cross-platform compatible
 
-#### Technical Requirements
-- Add `user_status` table to track current status
-- WebSocket broadcasts for status changes
-- Client-side idle detection
-- Update member list and DM UI components
+#### Technical Implementation
+- ✅ Added `user_status` table to track current status
+- ✅ WebSocket broadcasts for status changes
+- ✅ Client-side idle detection (5 minute timer)
+- ✅ StatusIndicator component created
+- ✅ Reactive stores for status management
+- ✅ Automatic online/offline on connect/disconnect
 
 #### Benefits
 - Makes the app feel alive and active
 - Helps users know who's available to chat
 - Reduces unnecessary message attempts to offline users
 - Enhances the social aspect of the platform
+
+**Status:** Fully implemented in version 0.8.0  
+**Documentation:** See `IMPLEMENTATION_DOCS/USER_STATUS_COMPLETE.md`
 
 ---
 
@@ -648,4 +655,4 @@ When choosing which feature to implement next, consider:
 ---
 
 **Last Updated:** 2026-02-15  
-**Version:** 0.7.0 (Post-DM Implementation)
+**Version:** 0.8.0 (Post-Status Implementation)

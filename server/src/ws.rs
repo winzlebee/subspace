@@ -141,11 +141,17 @@ async fn handle_socket(socket: WebSocket, state: Arc<AppState>) {
 
     tracing::info!("WebSocket authenticated: user_id={user_id}");
 
+    // Set user status to online
+    let _ = state.db.set_user_status(&user_id, "online", None);
+
     // Subscribe to all servers the user is a member of
     let servers = state
         .db
         .get_servers_for_user(&user_id)
         .unwrap_or_default();
+
+    // Broadcast online status to all shared servers
+    broadcast_user_status_update(&state, &user_id, &servers).await;
 
     let mut receivers = Vec::new();
     for server in &servers {
@@ -220,7 +226,13 @@ async fn handle_socket(socket: WebSocket, state: Arc<AppState>) {
         _ = recv_task => {},
     }
 
-    // Cleanup: leave voice if in one, unsubscribe
+    // Cleanup: set offline, leave voice if in one, unsubscribe
+    let _ = state.db.set_user_offline(&user_id);
+    
+    // Broadcast offline status to all shared servers
+    let servers = state.db.get_servers_for_user(&user_id).unwrap_or_default();
+    broadcast_user_status_update(&state, &user_id, &servers).await;
+    
     if let Ok(Some(channel_id)) = state.db.leave_voice_channel(&user_id) {
         broadcast_voice_state_update(&state, &channel_id).await;
     }
@@ -257,6 +269,7 @@ async fn handle_client_message(text: &str, user_id: &str, state: &Arc<AppState>)
                             id: uuid::Uuid::parse_str(&row.author_id).unwrap(),
                             username: row.author_username,
                             avatar_url: row.author_avatar_url,
+                            status: None,
                         }),
                         attachments: vec![],
                         reactions: vec![],
@@ -298,6 +311,7 @@ async fn handle_client_message(text: &str, user_id: &str, state: &Arc<AppState>)
                                     id: uuid::Uuid::parse_str(&user_row.id).unwrap(),
                                     username: user_row.username,
                                     avatar_url: user_row.avatar_url,
+                                    status: None,
                                 },
                             })
                             .unwrap(),
@@ -416,6 +430,27 @@ async fn handle_client_message(text: &str, user_id: &str, state: &Arc<AppState>)
                 }
             }
         }
+        "update_status" => {
+            if let Ok(msg) =
+                serde_json::from_value::<shared::ws_messages::WsUpdateStatus>(env.payload)
+            {
+                // Validate status
+                if !["online", "idle", "dnd"].contains(&msg.status.as_str()) {
+                    return;
+                }
+                
+                // Update database
+                if state
+                    .db
+                    .set_user_status(user_id, &msg.status, msg.custom_text.as_deref())
+                    .is_ok()
+                {
+                    // Broadcast to all shared servers
+                    let servers = state.db.get_servers_for_user(user_id).unwrap_or_default();
+                    broadcast_user_status_update(state, user_id, &servers).await;
+                }
+            }
+        }
         _ => {
             tracing::warn!("Unknown WS message type: {}", env.msg_type);
         }
@@ -450,6 +485,41 @@ async fn broadcast_voice_state_update(state: &Arc<AppState>, channel_id: &str) {
                 .ws_state
                 .broadcast_to_server(&server_id, &serde_json::to_string(&ws_msg).unwrap())
                 .await;
+        }
+    }
+}
+
+async fn broadcast_user_status_update(
+    state: &Arc<AppState>,
+    user_id: &str,
+    servers: &[crate::db::ServerRow],
+) {
+    // Get the user's current status
+    if let Ok(Some(status_row)) = state.db.get_user_status(user_id) {
+        let status = shared::models::UserStatus {
+            user_id: uuid::Uuid::parse_str(&status_row.user_id).unwrap(),
+            status: status_row.status,
+            custom_text: status_row.custom_text,
+            activity_type: status_row.activity_type,
+            activity_name: status_row.activity_name,
+            last_seen: status_row.last_seen,
+            updated_at: status_row.updated_at,
+        };
+
+        let ws_msg = WsEnvelope {
+            msg_type: "user_status_update".to_string(),
+            payload: serde_json::to_value(shared::ws_messages::WsUserStatusUpdate {
+                user_id: uuid::Uuid::parse_str(user_id).unwrap(),
+                status,
+            })
+            .unwrap(),
+        };
+
+        let msg_str = serde_json::to_string(&ws_msg).unwrap();
+
+        // Broadcast to all servers the user is a member of
+        for server in servers {
+            state.ws_state.broadcast_to_server(&server.id, &msg_str).await;
         }
     }
 }

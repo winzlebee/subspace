@@ -1,6 +1,7 @@
 <script lang="ts">
     import { members, currentServer } from "$lib/stores";
     import { getFileUrl } from "$lib/api";
+    import StatusIndicator from "./StatusIndicator.svelte";
 
     // Resize logic
     let width = $state(240); // default w-60
@@ -59,18 +60,23 @@
                 <li
                     class="flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-base-300/50 cursor-pointer"
                 >
-                    <div
-                        class="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center text-xs font-bold text-primary shrink-0"
-                    >
-                        {#if member.avatar_url}
-                            <img
-                                src={getFileUrl(member.avatar_url)}
-                                alt=""
-                                class="w-full h-full rounded-full object-cover"
-                            />
-                        {:else}
-                            {member.username[0].toUpperCase()}
-                        {/if}
+                    <div class="relative">
+                        <div
+                            class="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center text-xs font-bold text-primary shrink-0"
+                        >
+                            {#if member.avatar_url}
+                                <img
+                                    src={getFileUrl(member.avatar_url)}
+                                    alt=""
+                                    class="w-full h-full rounded-full object-cover"
+                                />
+                            {:else}
+                                {member.username[0].toUpperCase()}
+                            {/if}
+                        </div>
+                        <div class="absolute -bottom-0.5 -right-0.5">
+                            <StatusIndicator status={member.status} size="small" />
+                        </div>
                     </div>
                     <div class="flex-1 min-w-0">
                         <p class="text-sm text-base-content truncate">

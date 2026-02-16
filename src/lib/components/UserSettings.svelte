@@ -7,8 +7,10 @@
         audioOutputDeviceId,
     } from "$lib/webrtc";
     import CloseButton from "./CloseButton.svelte";
+    import StatusIndicator from "./StatusIndicator.svelte";
     import { THEMES } from "$lib/config";
     import { onMount, onDestroy } from "svelte";
+    import { setUserStatus } from "$lib/ws";
 
     let username = $state($currentUser?.username ?? "");
     let saving = $state(false);
@@ -326,6 +328,42 @@
                         bind:value={username}
                     />
                 </fieldset>
+
+                <div class="divider"></div>
+
+                <!-- Status Selector -->
+                <div class="max-w-md mb-8">
+                    <h3 class="font-bold mb-2">Status</h3>
+                    <p class="text-sm text-base-content/60 mb-4">
+                        Set your online status
+                    </p>
+                    <div class="space-y-2">
+                        <button
+                            class="btn btn-ghost w-full justify-start gap-3"
+                            onclick={() => setUserStatus('online')}
+                        >
+                            <StatusIndicator status={{ user_id: '', status: 'online', custom_text: null, activity_type: null, activity_name: null, last_seen: '', updated_at: '' }} size="medium" />
+                            <span>Online</span>
+                        </button>
+                        <button
+                            class="btn btn-ghost w-full justify-start gap-3"
+                            onclick={() => setUserStatus('idle')}
+                        >
+                            <StatusIndicator status={{ user_id: '', status: 'idle', custom_text: null, activity_type: null, activity_name: null, last_seen: '', updated_at: '' }} size="medium" />
+                            <span>Idle</span>
+                        </button>
+                        <button
+                            class="btn btn-ghost w-full justify-start gap-3"
+                            onclick={() => setUserStatus('dnd')}
+                        >
+                            <StatusIndicator status={{ user_id: '', status: 'dnd', custom_text: null, activity_type: null, activity_name: null, last_seen: '', updated_at: '' }} size="medium" />
+                            <span>Do Not Disturb</span>
+                        </button>
+                    </div>
+                    <p class="text-xs text-base-content/50 mt-3">
+                        Note: Status will automatically change to Idle after 5 minutes of inactivity
+                    </p>
+                </div>
 
                 <div class="divider"></div>
 

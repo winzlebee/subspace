@@ -85,6 +85,12 @@ pub struct WsSignalIce {
     pub sdp_mline_index: Option<u16>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WsUpdateStatus {
+    pub status: String, // 'online' | 'idle' | 'dnd'
+    pub custom_text: Option<String>,
+}
+
 // ────────────────────────────────────────────────────────────────────────────
 // Server → Client
 // ────────────────────────────────────────────────────────────────────────────
@@ -180,4 +186,10 @@ pub struct WsDmMessageDeleted {
 pub struct WsDmReactionUpdated {
     pub message_id: Uuid,
     pub reactions: Vec<crate::models::ReactionGroup>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WsUserStatusUpdate {
+    pub user_id: Uuid,
+    pub status: crate::models::UserStatus,
 }

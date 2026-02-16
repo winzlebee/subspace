@@ -118,6 +118,16 @@ pub async fn join_server(
                 _ => return StatusCode::INTERNAL_SERVER_ERROR.into_response(),
             };
 
+            let status = state.db.get_user_status(&user.user_id).ok().flatten().map(|s| shared::models::UserStatus {
+                user_id: Uuid::parse_str(&s.user_id).unwrap(),
+                status: s.status,
+                custom_text: s.custom_text,
+                activity_type: s.activity_type,
+                activity_name: s.activity_name,
+                last_seen: s.last_seen,
+                updated_at: s.updated_at,
+            });
+
             let member = shared::models::ServerMember {
                 user_id: Uuid::parse_str(&user.user_id).unwrap(),
                 server_id: Uuid::parse_str(&server_id).unwrap(),
@@ -125,6 +135,7 @@ pub async fn join_server(
                 joined_at: joined_at_secs,
                 username: user_row.username.clone(),
                 avatar_url: user_row.avatar_url.clone(),
+                status,
             };
 
             let ws_msg = shared::ws_messages::WsEnvelope {
@@ -170,15 +181,36 @@ pub async fn get_members(
 ) -> impl IntoResponse {
     match state.db.get_server_members(&server_id) {
         Ok(rows) => {
+            // Get user IDs for status lookup
+            let user_ids: Vec<String> = rows.iter().map(|r| r.user_id.clone()).collect();
+            let statuses = state.db.get_user_statuses(&user_ids).unwrap_or_default();
+            let status_map: std::collections::HashMap<String, _> = statuses
+                .into_iter()
+                .map(|s| (s.user_id.clone(), s))
+                .collect();
+
             let members: Vec<ServerMember> = rows
                 .into_iter()
-                .map(|r| ServerMember {
-                    user_id: Uuid::parse_str(&r.user_id).unwrap(),
-                    server_id: Uuid::parse_str(&r.server_id).unwrap(),
-                    role: r.role,
-                    joined_at: r.joined_at,
-                    username: r.username,
-                    avatar_url: r.avatar_url,
+                .map(|r| {
+                    let status = status_map.get(&r.user_id).map(|s| shared::models::UserStatus {
+                        user_id: Uuid::parse_str(&s.user_id).unwrap(),
+                        status: s.status.clone(),
+                        custom_text: s.custom_text.clone(),
+                        activity_type: s.activity_type.clone(),
+                        activity_name: s.activity_name.clone(),
+                        last_seen: s.last_seen.clone(),
+                        updated_at: s.updated_at.clone(),
+                    });
+
+                    ServerMember {
+                        user_id: Uuid::parse_str(&r.user_id).unwrap(),
+                        server_id: Uuid::parse_str(&r.server_id).unwrap(),
+                        role: r.role,
+                        joined_at: r.joined_at,
+                        username: r.username,
+                        avatar_url: r.avatar_url,
+                        status,
+                    }
                 })
                 .collect();
             Json(members).into_response()

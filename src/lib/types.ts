@@ -11,10 +11,21 @@ export interface User {
     updated_at: string;
 }
 
+export interface UserStatus {
+    user_id: string;
+    status: 'online' | 'idle' | 'dnd' | 'offline';
+    custom_text: string | null;
+    activity_type: string | null;
+    activity_name: string | null;
+    last_seen: string;
+    updated_at: string;
+}
+
 export interface UserPublic {
     id: string;
     username: string;
     avatar_url: string | null;
+    status: UserStatus | null;
 }
 
 export interface Server {
@@ -83,6 +94,7 @@ export interface ServerMember {
     joined_at: string;
     username: string;
     avatar_url: string | null;
+    status: UserStatus | null;
 }
 
 export interface AuthResponse {

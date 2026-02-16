@@ -8,6 +8,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 
+## [0.9.0] - 2026-02-16
+
+### Added
+
+- User Status & Presence System
+  - Real-time status indicators (online, idle, dnd, offline) with color-coded dots
+  - Automatic online/offline status management on connect/disconnect
+  - Automatic idle detection after 5 minutes of inactivity
+  - Manual status selection (Online, Idle, Do Not Disturb) in User Settings
+
+
 ## [0.8.0] - 2026-02-15
 
 ### Added

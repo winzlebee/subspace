@@ -1,6 +1,6 @@
 import { get } from "svelte/store";
-import { authToken, currentUser, currentChannelId, currentServerId, messages, pinnedMessages, voiceStates, voiceChannelId, addTypingUser, members, dmMessages, currentDmConversationId } from "./stores";
-import type { WsEnvelope, Message, VoiceState, DmMessage } from "./types";
+import { authToken, currentUser, currentChannelId, currentServerId, messages, pinnedMessages, voiceStates, voiceChannelId, addTypingUser, members, dmMessages, currentDmConversationId, updateUserStatus } from "./stores";
+import type { WsEnvelope, Message, VoiceState, DmMessage, UserStatus } from "./types";
 import { getServerUrl } from "./api";
 
 function getWsUrl(): string {
@@ -266,6 +266,15 @@ function handleMessage(env: WsEnvelope) {
             break;
         }
 
+        case "user_status_update": {
+            const { user_id, status } = env.payload as {
+                user_id: string;
+                status: UserStatus;
+            };
+            updateUserStatus(user_id, status);
+            break;
+        }
+
         case "error":
             console.error("WS error:", env.payload.message);
             break;
@@ -273,6 +282,62 @@ function handleMessage(env: WsEnvelope) {
         default:
             console.warn("Unknown WS message:", env.type);
     }
+}
+
+// ── User Status ──────────────────────────────────────────────────────
+
+let manualStatus: 'online' | 'idle' | 'dnd' | null = null;
+
+export function setUserStatus(status: 'online' | 'idle' | 'dnd', customText?: string) {
+    // Track manual status changes (except auto-idle)
+    if (status !== 'idle' || !isIdle) {
+        manualStatus = status;
+    }
+    
+    send({
+        type: "update_status",
+        payload: {
+            status,
+            custom_text: customText || null
+        }
+    });
+}
+
+// ── Idle Detection ───────────────────────────────────────────────────
+
+let idleTimer: ReturnType<typeof setTimeout> | null = null;
+let isIdle = false;
+
+function resetIdleTimer() {
+    if (idleTimer) clearTimeout(idleTimer);
+    
+    // If was idle and user is not manually set to DND, send online status
+    if (isIdle && manualStatus !== 'dnd') {
+        setUserStatus('online');
+        isIdle = false;
+    }
+    
+    // Only set idle timer if user is not manually set to DND
+    if (manualStatus !== 'dnd') {
+        idleTimer = setTimeout(() => {
+            // Only auto-idle if user hasn't manually set DND
+            if (manualStatus !== 'dnd') {
+                setUserStatus('idle');
+                isIdle = true;
+            }
+        }, 5 * 60 * 1000); // 5 minutes
+    }
+}
+
+// Initialize idle detection when module loads
+if (typeof window !== 'undefined') {
+    window.addEventListener('mousemove', resetIdleTimer);
+    window.addEventListener('keydown', resetIdleTimer);
+    window.addEventListener('click', resetIdleTimer);
+    window.addEventListener('scroll', resetIdleTimer);
+    
+    // Start idle timer
+    resetIdleTimer();
 }
 
 // ── Desktop notifications ────────────────────────────────────────────

@@ -955,6 +955,113 @@ impl Database {
             .collect::<Result<Vec<_>, _>>()?;
         Ok(rows)
     }
+
+    // ── User Status queries ──────────────────────────────────────────────
+
+    pub fn set_user_status(
+        &self,
+        user_id: &str,
+        status: &str,
+        custom_text: Option<&str>,
+    ) -> Result<(), rusqlite::Error> {
+        let conn = self.conn.lock().unwrap();
+        conn.execute(
+            "INSERT INTO user_status (user_id, status, custom_text, last_seen, updated_at)
+             VALUES (?1, ?2, ?3, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'), strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+             ON CONFLICT(user_id) DO UPDATE SET
+                status = ?2,
+                custom_text = ?3,
+                last_seen = strftime('%Y-%m-%dT%H:%M:%fZ', 'now'),
+                updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')",
+            params![user_id, status, custom_text],
+        )?;
+        Ok(())
+    }
+
+    pub fn get_user_status(&self, user_id: &str) -> Result<Option<UserStatusRow>, rusqlite::Error> {
+        let conn = self.conn.lock().unwrap();
+        let result = conn.query_row(
+            "SELECT user_id, status, custom_text, activity_type, activity_name, last_seen, updated_at
+             FROM user_status WHERE user_id = ?1",
+            params![user_id],
+            |row| {
+                Ok(UserStatusRow {
+                    user_id: row.get(0)?,
+                    status: row.get(1)?,
+                    custom_text: row.get(2)?,
+                    activity_type: row.get(3)?,
+                    activity_name: row.get(4)?,
+                    last_seen: row.get(5)?,
+                    updated_at: row.get(6)?,
+                })
+            },
+        );
+        match result {
+            Ok(row) => Ok(Some(row)),
+            Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
+            Err(e) => Err(e),
+        }
+    }
+
+    pub fn get_user_statuses(&self, user_ids: &[String]) -> Result<Vec<UserStatusRow>, rusqlite::Error> {
+        if user_ids.is_empty() {
+            return Ok(vec![]);
+        }
+        let conn = self.conn.lock().unwrap();
+        let placeholders = user_ids.iter().map(|_| "?").collect::<Vec<_>>().join(",");
+        let query = format!(
+            "SELECT user_id, status, custom_text, activity_type, activity_name, last_seen, updated_at
+             FROM user_status WHERE user_id IN ({})",
+            placeholders
+        );
+        let mut stmt = conn.prepare(&query)?;
+        let params_ref: Vec<&dyn rusqlite::types::ToSql> = user_ids.iter().map(|id| id as &dyn rusqlite::types::ToSql).collect();
+        let rows = stmt
+            .query_map(params_ref.as_slice(), |row| {
+                Ok(UserStatusRow {
+                    user_id: row.get(0)?,
+                    status: row.get(1)?,
+                    custom_text: row.get(2)?,
+                    activity_type: row.get(3)?,
+                    activity_name: row.get(4)?,
+                    last_seen: row.get(5)?,
+                    updated_at: row.get(6)?,
+                })
+            })?
+            .collect::<Result<Vec<_>, _>>()?;
+        Ok(rows)
+    }
+
+    pub fn set_user_activity(
+        &self,
+        user_id: &str,
+        activity_type: Option<&str>,
+        activity_name: Option<&str>,
+    ) -> Result<(), rusqlite::Error> {
+        let conn = self.conn.lock().unwrap();
+        conn.execute(
+            "UPDATE user_status SET activity_type = ?1, activity_name = ?2, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+             WHERE user_id = ?3",
+            params![activity_type, activity_name, user_id],
+        )?;
+        Ok(())
+    }
+
+    pub fn set_user_offline(&self, user_id: &str) -> Result<(), rusqlite::Error> {
+        let conn = self.conn.lock().unwrap();
+        conn.execute(
+            "INSERT INTO user_status (user_id, status, last_seen, updated_at)
+             VALUES (?1, 'offline', strftime('%Y-%m-%dT%H:%M:%fZ', 'now'), strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+             ON CONFLICT(user_id) DO UPDATE SET
+                status = 'offline',
+                activity_type = NULL,
+                activity_name = NULL,
+                last_seen = strftime('%Y-%m-%dT%H:%M:%fZ', 'now'),
+                updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')",
+            params![user_id],
+        )?;
+        Ok(())
+    }
 }
 
 // ── Row types ────────────────────────────────────────────────────────────────
@@ -1067,4 +1174,15 @@ pub struct DmMessageRow {
     pub edited_at: Option<String>,
     pub author_username: String,
     pub author_avatar_url: Option<String>,
+}
+
+#[derive(Debug, Clone)]
+pub struct UserStatusRow {
+    pub user_id: String,
+    pub status: String,
+    pub custom_text: Option<String>,
+    pub activity_type: Option<String>,
+    pub activity_name: Option<String>,
+    pub last_seen: String,
+    pub updated_at: String,
 }

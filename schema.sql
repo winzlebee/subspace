@@ -195,3 +195,19 @@ CREATE TABLE IF NOT EXISTS dm_reactions (
 );
 
 CREATE INDEX IF NOT EXISTS idx_dm_reactions_message ON dm_reactions(message_id);
+
+--------------------------------------------------------------------------------
+-- User Status & Presence
+-- Tracks real-time user status (online, idle, dnd, offline)
+--------------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS user_status (
+    user_id       TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+    status        TEXT NOT NULL CHECK (status IN ('online', 'idle', 'dnd', 'offline')),
+    custom_text   TEXT,                           -- Optional custom status message
+    activity_type TEXT,                           -- 'voice_channel', 'game', etc.
+    activity_name TEXT,                           -- Channel name, game name, etc.
+    last_seen     TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+    updated_at    TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_user_status_status ON user_status(status);

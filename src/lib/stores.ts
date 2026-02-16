@@ -86,6 +86,30 @@ export const currentDmConversation = derived(
 export const dmMessages = writable<import("./types").DmMessage[]>([]);
 export const isDmMode = writable(false);
 
+// ── User Status ──────────────────────────────────────────────────────
+export const userStatuses = writable<Record<string, import("./types").UserStatus>>({});
+
+export function updateUserStatus(userId: string, status: import("./types").UserStatus) {
+    userStatuses.update(statuses => ({
+        ...statuses,
+        [userId]: status
+    }));
+    
+    // Also update in members list if present
+    members.update(m => m.map(member => 
+        member.user_id === userId 
+            ? { ...member, status }
+            : member
+    ));
+    
+    // Also update in DM conversations if present
+    dmConversations.update(convs => convs.map(conv =>
+        conv.other_user.id === userId
+            ? { ...conv, other_user: { ...conv.other_user, status } }
+            : conv
+    ));
+}
+
 // ── Logout ───────────────────────────────────────────────────────────
 export function logout() {
     authToken.set(null);

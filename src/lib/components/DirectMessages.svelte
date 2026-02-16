@@ -11,6 +11,7 @@
   import { addToast } from "$lib/stores/toasts";
   import { getFileUrl } from "$lib/api";
   import type { UserPublic } from "$lib/types";
+  import StatusIndicator from "./StatusIndicator.svelte";
 
   let { onSelectConversation } = $props<{
     onSelectConversation: (id: string) => void;
@@ -50,6 +51,7 @@
               id: member.user_id,
               username: member.username,
               avatar_url: member.avatar_url,
+              status: member.status,
             });
           }
         }
@@ -166,8 +168,8 @@
           class="w-full p-3 hover:bg-base-300 transition-colors text-left flex items-center gap-3 {$currentDmConversationId === conv.id ? 'bg-base-300' : ''}"
           onclick={() => onSelectConversation(conv.id)}
         >
-          <!-- Avatar -->
-          <div class="avatar">
+          <!-- Avatar with Status -->
+          <div class="avatar relative">
             <div class="w-10 h-10 rounded-full">
               {#if conv.other_user.avatar_url}
                 <img src={getFileUrl(conv.other_user.avatar_url)} alt={conv.other_user.username} />
@@ -176,6 +178,9 @@
                   {conv.other_user.username[0].toUpperCase()}
                 </div>
               {/if}
+            </div>
+            <div class="absolute -bottom-0.5 -right-0.5">
+              <StatusIndicator status={conv.other_user.status} size="small" />
             </div>
           </div>
 

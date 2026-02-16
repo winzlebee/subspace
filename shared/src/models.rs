@@ -17,12 +17,25 @@ pub struct User {
     pub updated_at: String,
 }
 
+/// User status and presence information
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UserStatus {
+    pub user_id: Uuid,
+    pub status: String, // 'online' | 'idle' | 'dnd' | 'offline'
+    pub custom_text: Option<String>,
+    pub activity_type: Option<String>,
+    pub activity_name: Option<String>,
+    pub last_seen: String,
+    pub updated_at: String,
+}
+
 /// Public-facing user info (no password hash, no settings)
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UserPublic {
     pub id: Uuid,
     pub username: String,
     pub avatar_url: Option<String>,
+    pub status: Option<UserStatus>,
 }
 
 // ────────────────────────────────────────────────────────────────────────────
@@ -57,6 +70,7 @@ pub struct ServerMember {
     pub joined_at: String,
     pub username: String,
     pub avatar_url: Option<String>,
+    pub status: Option<UserStatus>,
 }
 
 // ────────────────────────────────────────────────────────────────────────────
