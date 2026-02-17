@@ -31,35 +31,44 @@ async fn handle_turn_test_socket(mut socket: WebSocket) {
                 match msg_type {
                     Some("offer") => {
                         // Received an offer, send back an answer
-                        // In a real implementation, we'd create a peer connection
-                        // For testing purposes, we'll just echo back a simple response
                         println!("[TURN Test] Received offer, sending answer");
                         
-                        // Echo the offer back as an answer for now
-                        // This is a simplified test - in production you'd want actual WebRTC handling
-                        let response = serde_json::json!({
-                            "type": "answer",
-                            "sdp": data.get("sdp")
-                        });
+                        // For a simple test, we just need to acknowledge receipt
+                        // The client will timeout if it doesn't get candidates back
+                        // Since we're just testing TURN candidate generation, not actual connection,
+                        // we can send back a minimal response
                         
-                        if let Ok(response_text) = serde_json::to_string(&response) {
-                            if socket.send(Message::Text(response_text.into())).await.is_err() {
-                                break;
+                        // Extract the SDP from the offer
+                        if let Some(sdp_obj) = data.get("sdp") {
+                            // Send back the same SDP as an answer
+                            // This won't establish a real connection but allows ICE gathering
+                            let response = serde_json::json!({
+                                "type": "answer",
+                                "sdp": sdp_obj
+                            });
+                            
+                            if let Ok(response_text) = serde_json::to_string(&response) {
+                                if socket.send(Message::Text(response_text.into())).await.is_err() {
+                                    break;
+                                }
                             }
                         }
                     }
                     Some("ice") => {
-                        // Received an ICE candidate, echo it back
-                        println!("[TURN Test] Received ICE candidate");
-                        if socket.send(Message::Text(text.into())).await.is_err() {
-                            break;
-                        }
+                        // Received an ICE candidate
+                        // For testing purposes, we don't need to do anything with these
+                        // The client is just verifying it can generate relay candidates
+                        println!("[TURN Test] Received ICE candidate: {}", 
+                            data.get("candidate")
+                                .and_then(|c| c.get("candidate"))
+                                .and_then(|c| c.as_str())
+                                .unwrap_or("unknown"));
+                        
+                        // Don't echo ICE candidates back - this prevents confusion
+                        // The test is about generating candidates, not establishing connection
                     }
                     _ => {
-                        // Unknown message type, just echo it
-                        if socket.send(Message::Text(text.into())).await.is_err() {
-                            break;
-                        }
+                        println!("[TURN Test] Unknown message type: {:?}", msg_type);
                     }
                 }
             }

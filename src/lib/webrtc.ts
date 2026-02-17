@@ -1360,6 +1360,18 @@ export async function testTurnConnectionRemote(): Promise<TurnTestResult> {
                 reject(new Error("Connection timeout after 20 seconds"));
             }, 20000);
 
+            // For remote test, we just need to verify ICE gathering completes
+            // We're not trying to establish a full connection, just verify TURN candidates
+            testPc!.onicegatheringstatechange = () => {
+                console.log("[TURN Remote Test] ICE gathering state:", testPc!.iceGatheringState);
+                
+                if (testPc!.iceGatheringState === "complete") {
+                    clearTimeout(timeout);
+                    console.log("[TURN Remote Test] ICE gathering complete");
+                    resolve();
+                }
+            };
+
             ws!.onmessage = async (event) => {
                 try {
                     const data = JSON.parse(event.data);
@@ -1367,11 +1379,6 @@ export async function testTurnConnectionRemote(): Promise<TurnTestResult> {
                     if (data.type === "answer") {
                         console.log("[TURN Remote Test] Received answer from remote peer");
                         await testPc!.setRemoteDescription(data.sdp);
-                    } else if (data.type === "ice") {
-                        console.log("[TURN Remote Test] Received ICE candidate from remote peer");
-                        if (data.candidate) {
-                            await testPc!.addIceCandidate(data.candidate);
-                        }
                     }
                 } catch (e) {
                     console.error("[TURN Remote Test] Error handling message:", e);

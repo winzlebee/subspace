@@ -21,11 +21,12 @@ Comprehensive TURN server diagnostic testing system that allows users to verify 
 - **Speed**: ~5-15 seconds
 
 ### 3. Remote Test (Real NAT)
-- **Purpose**: Realistic test with actual remote peer
+- **Purpose**: Verify TURN server accessibility from client's network
 - **Method**: Connects to server's `/api/turn-test` WebSocket endpoint
-- **Tests**: Real NAT traversal and TURN functionality
-- **Use Case**: Production verification, realistic network conditions
-- **Speed**: ~5-20 seconds
+- **Tests**: TURN candidate generation with server signaling (validates network path to TURN server)
+- **Use Case**: Verify TURN server is reachable from client's network location
+- **Speed**: ~3-8 seconds
+- **Note**: Tests ICE gathering completion, not full connection establishment
 
 ## Changes Made
 

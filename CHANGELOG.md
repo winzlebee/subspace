@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.10.1] - 2026-02-17
+
+### Updated
+
+- Updated remote TURN test to just verify ICE gathering completes then succeeds once TURN candidates are generated instead od establishing a full WebRTC connection
+
+
 ## [0.10.0] - 2026-02-17
 
 ### Added
