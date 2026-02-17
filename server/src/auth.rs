@@ -57,8 +57,11 @@ pub async fn register(
     State(state): State<Arc<AppState>>,
     Json(body): Json<AuthRequest>,
 ) -> impl IntoResponse {
+    tracing::info!("Registration attempt for username: {}", body.username);
+    
     // Check if user already exists
     if let Ok(Some(_)) = state.db.get_user_by_username(&body.username) {
+        tracing::warn!("Registration failed: username '{}' already taken", body.username);
         return (StatusCode::CONFLICT, Json(serde_json::json!({"error": "Username already taken"}))).into_response();
     }
 
@@ -66,14 +69,14 @@ pub async fn register(
     let password_hash = hash_password(&body.password);
 
     if let Err(e) = state.db.create_user(&id, &body.username, &password_hash) {
-        tracing::error!("Failed to create user: {e}");
+        tracing::error!("Failed to create user '{}': {}", body.username, e);
         return (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({"error": "Internal error"}))).into_response();
     }
 
     let token = create_token(&id.to_string(), &state.jwt_secret).unwrap();
     let user = User {
         id,
-        username: body.username,
+        username: body.username.clone(),
         avatar_url: None,
         theme: "dark".to_string(),
         language: "en".to_string(),
@@ -82,6 +85,7 @@ pub async fn register(
         updated_at: String::new(),
     };
 
+    tracing::info!("User registered successfully: user_id={}, username={}", id, body.username);
     Json(AuthResponse { token, user }).into_response()
 }
 
@@ -89,21 +93,25 @@ pub async fn login(
     State(state): State<Arc<AppState>>,
     Json(body): Json<AuthRequest>,
 ) -> impl IntoResponse {
+    tracing::info!("Login attempt for username: {}", body.username);
+    
     let user_row = match state.db.get_user_by_username(&body.username) {
         Ok(Some(u)) => u,
         _ => {
+            tracing::warn!("Login failed: user '{}' not found", body.username);
             return (StatusCode::UNAUTHORIZED, Json(serde_json::json!({"error": "Invalid credentials"}))).into_response();
         }
     };
 
     if !verify_password(&body.password, &user_row.password_hash) {
+        tracing::warn!("Login failed: invalid password for user '{}'", body.username);
         return (StatusCode::UNAUTHORIZED, Json(serde_json::json!({"error": "Invalid credentials"}))).into_response();
     }
 
     let token = create_token(&user_row.id, &state.jwt_secret).unwrap();
     let user = User {
         id: Uuid::parse_str(&user_row.id).unwrap(),
-        username: user_row.username,
+        username: user_row.username.clone(),
         avatar_url: user_row.avatar_url,
         theme: user_row.theme,
         language: user_row.language,
@@ -112,6 +120,7 @@ pub async fn login(
         updated_at: user_row.updated_at,
     };
 
+    tracing::info!("User logged in successfully: user_id={}, username={}", user_row.id, user_row.username);
     Json(AuthResponse { token, user }).into_response()
 }
 

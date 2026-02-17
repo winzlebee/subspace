@@ -126,9 +126,63 @@ The server can be configured using the following environment variables:
 - **`TURN_PASSWORD`** - Password for the TURN server (required for WebRTC)
 - **`TURN_URL`** - Custom TURN server URL (optional, e.g., `turn:turn.example.com:3478`)
 - **`TURN_USERNAME`** - Username for TURN authentication (default: `subspace`)
+- **`RUST_LOG`** - Logging level (default: `info`, options: `error`, `warn`, `info`, `debug`, `trace`)
 
 > [!IMPORTANT]
 > Make sure to set a strong `JWT_SECRET` in production environments. This is used to sign authentication tokens.
+
+## Logging
+
+The server provides comprehensive logging for monitoring and troubleshooting. Log levels can be controlled via the `RUST_LOG` environment variable:
+
+```bash
+# Show only errors and warnings
+RUST_LOG=warn
+
+# Show info and above (recommended for production)
+RUST_LOG=info
+
+# Show debug and above (useful for troubleshooting)
+RUST_LOG=debug
+
+# Module-specific logging
+RUST_LOG=subspace_server=debug,axum=info
+```
+
+### What Gets Logged
+
+- **Authentication**: User registration, login attempts, and failures
+- **WebSocket**: Connection/disconnection events, message types, and operations
+- **Messages**: Creation, deletion, and editing via both HTTP and WebSocket
+- **Voice**: Channel joins, leaves, and state changes
+- **Status**: User status updates (online, idle, dnd)
+- **Errors**: All failures with contextual information (user_id, channel_id, etc.)
+
+### Viewing Docker Logs
+
+```bash
+# View logs in real-time
+docker logs -f subspace-server
+
+# View last 100 lines
+docker logs --tail 100 subspace-server
+
+# View logs since a specific time
+docker logs --since 30m subspace-server
+```
+
+### Example Log Output
+
+```
+2024-01-15T10:30:45Z INFO  subspace_server: Subspace server listening on 0.0.0.0:3001
+2024-01-15T10:31:12Z INFO  subspace_server::auth: User registered successfully: user_id=550e8400-e29b-41d4-a716-446655440000, username=alice
+2024-01-15T10:31:45Z INFO  subspace_server::auth: User logged in successfully: user_id=550e8400-e29b-41d4-a716-446655440000, username=alice
+2024-01-15T10:31:46Z INFO  subspace_server::ws: WebSocket authenticated: user_id=550e8400-e29b-41d4-a716-446655440000
+2024-01-15T10:32:10Z INFO  subspace_server::ws: Message sent via WebSocket: message_id=660e8400-e29b-41d4-a716-446655440001, channel_id=770e8400-e29b-41d4-a716-446655440002
+2024-01-15T10:35:20Z INFO  subspace_server::ws: User joining voice channel: user_id=550e8400-e29b-41d4-a716-446655440000, channel_id=880e8400-e29b-41d4-a716-446655440003
+```
+
+For more details, see [IMPLEMENTATION_DOCS/SERVER_LOGGING.md](IMPLEMENTATION_DOCS/SERVER_LOGGING.md).
 
 ## Data Persistence
 

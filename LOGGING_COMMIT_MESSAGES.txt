@@ -1,0 +1,57 @@
+# Commit Message for Server Logging Improvements
+
+## Single Commit:
+```
+feat(server): add comprehensive logging for operations and debugging
+
+- Add INFO logging for auth events (register, login with user details)
+- Add WARN logging for failed auth attempts
+- Add INFO logging for WebSocket connections and disconnections
+- Add DEBUG logging for all WebSocket message types
+- Add INFO logging for critical operations (messages, voice, status updates)
+- Add INFO logging for HTTP message creation and deletion
+- Improve error logging with contextual information (user_id, channel_id, etc.)
+- Add documentation for log levels and Docker usage
+
+This significantly improves observability in Docker container logs, making it
+easier to monitor user activity, troubleshoot issues, and audit system events.
+```
+
+## Alternative Multi-Commit:
+
+### Commit 1:
+```
+feat(server): add authentication logging
+
+- Log registration attempts and successes with user details
+- Log login attempts and successes with user details
+- Warn on failed authentication attempts
+- Improve error context for auth failures
+```
+
+### Commit 2:
+```
+feat(server): add WebSocket operation logging
+
+- Log connection and disconnection events
+- Add debug logging for all message types
+- Log critical operations (messages, voice, status)
+- Warn on invalid messages and unknown types
+```
+
+### Commit 3:
+```
+feat(server): add HTTP API operation logging
+
+- Log message creation and deletion via HTTP
+- Improve error logging with contextual information
+- Add user_id and channel_id to error messages
+```
+
+### Commit 4:
+```
+docs: add server logging documentation
+
+Document log levels, configuration, Docker usage, and example output
+for improved observability and troubleshooting.
+```

@@ -18,7 +18,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   - WebRTC availability check for Tauri compatibility
   - New `/api/turn-test` WebSocket endpoint for remote peer testing
   - Comprehensive error messages and troubleshooting guidance
+- Comprehensive Server Logging
+  - Authentication events (registration, login, failures)
+  - WebSocket operations (connections, messages, voice, status updates)
+  - HTTP API operations (message creation, deletion, editing)
+  - Configurable log levels via RUST_LOG environment variable
+  - Detailed error context with user_id, channel_id, and operation details
 
+### Fixed
+
+- UI Reactivity Issues
+  - Update dmConversations store when DM messages arrive via WebSocket
+  - Improve updateUserStatus to ensure proper Svelte reactivity
+  - Add missing dmConversations import to ws.ts
+  - Fixes status indicators, message previews, and other UI elements not updating without refresh
+
+### Documentation
+
+- Add logging configuration and usage to README.md
+- Add SERVER_LOGGING.md with detailed logging documentation
+- Add REACTIVITY_FIXES.md explaining UI update improvements
 
 ## [0.9.1] - 2026-02-16
 

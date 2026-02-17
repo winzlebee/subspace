@@ -185,6 +185,8 @@ pub async fn create_message(
     };
 
     let id = Uuid::new_v4();
+    tracing::info!("Creating message via HTTP: message_id={}, channel_id={}, user_id={}", id, channel_id, user.user_id);
+    
     match state
         .db
         .create_message(&id, &channel_id, &user.user_id, body.content.as_deref())
@@ -226,7 +228,7 @@ pub async fn create_message(
             (StatusCode::CREATED, Json(message)).into_response()
         }
         Err(e) => {
-            tracing::error!("Failed to create message: {e}");
+            tracing::error!("Failed to create message: channel_id={}, user_id={}, error={}", channel_id, user.user_id, e);
             StatusCode::INTERNAL_SERVER_ERROR.into_response()
         }
     }
@@ -284,6 +286,8 @@ pub async fn delete_message(
     State(state): State<Arc<AppState>>,
     Path(message_id): Path<String>,
 ) -> impl IntoResponse {
+    tracing::info!("Deleting message: message_id={}", message_id);
+    
     // Get channel_id before deleting
     let channel_id = state.db.get_message_channel(&message_id).ok().flatten();
     let server_id = if let Some(cid) = &channel_id {

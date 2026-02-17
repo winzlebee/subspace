@@ -243,8 +243,13 @@ async fn handle_socket(socket: WebSocket, state: Arc<AppState>) {
 async fn handle_client_message(text: &str, user_id: &str, state: &Arc<AppState>) {
     let env: WsEnvelope = match serde_json::from_str(text) {
         Ok(e) => e,
-        Err(_) => return,
+        Err(e) => {
+            tracing::warn!("Failed to parse WebSocket message from user_id={}: {}", user_id, e);
+            return;
+        }
     };
+
+    tracing::debug!("WebSocket message: type={}, user_id={}", env.msg_type, user_id);
 
     match env.msg_type.as_str() {
         "send_message" => {
@@ -253,6 +258,9 @@ async fn handle_client_message(text: &str, user_id: &str, state: &Arc<AppState>)
             {
                 let id = uuid::Uuid::new_v4();
                 let channel_id = msg.channel_id.to_string();
+                
+                tracing::info!("Message sent via WebSocket: message_id={}, channel_id={}, user_id={}", id, channel_id, user_id);
+                
                 if let Ok(row) = state
                     .db
                     .create_message(&id, &channel_id, user_id, Some(&msg.content))
@@ -332,8 +340,11 @@ async fn handle_client_message(text: &str, user_id: &str, state: &Arc<AppState>)
                 serde_json::from_value::<shared::ws_messages::WsJoinVoice>(env.payload)
             {
                 let channel_id = msg.channel_id.to_string();
+                tracing::info!("User joining voice channel: user_id={}, channel_id={}", user_id, channel_id);
+                
                 // Leave previous voice channel if any
                 if let Ok(Some(prev_channel)) = state.db.leave_voice_channel(user_id) {
+                    tracing::debug!("User left previous voice channel: user_id={}, prev_channel_id={}", user_id, prev_channel);
                     broadcast_voice_state_update(state, &prev_channel).await;
                 }
                 if state
@@ -347,6 +358,7 @@ async fn handle_client_message(text: &str, user_id: &str, state: &Arc<AppState>)
         }
         "leave_voice" => {
             if let Ok(Some(channel_id)) = state.db.leave_voice_channel(user_id) {
+                tracing::info!("User left voice channel: user_id={}, channel_id={}", user_id, channel_id);
                 broadcast_voice_state_update(state, &channel_id).await;
             }
         }
@@ -436,8 +448,12 @@ async fn handle_client_message(text: &str, user_id: &str, state: &Arc<AppState>)
             {
                 // Validate status
                 if !["online", "idle", "dnd"].contains(&msg.status.as_str()) {
+                    tracing::warn!("Invalid status update attempt: user_id={}, status={}", user_id, msg.status);
                     return;
                 }
+                
+                tracing::info!("User status update: user_id={}, status={}, custom_text={:?}", 
+                    user_id, msg.status, msg.custom_text);
                 
                 // Update database
                 if state
