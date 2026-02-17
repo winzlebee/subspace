@@ -90,24 +90,35 @@ export const isDmMode = writable(false);
 export const userStatuses = writable<Record<string, import("./types").UserStatus>>({});
 
 export function updateUserStatus(userId: string, status: import("./types").UserStatus) {
+    // Update the userStatuses store
     userStatuses.update(statuses => ({
         ...statuses,
         [userId]: status
     }));
     
-    // Also update in members list if present
-    members.update(m => m.map(member => 
-        member.user_id === userId 
-            ? { ...member, status }
-            : member
-    ));
+    // Update in members list if present - create new array to trigger reactivity
+    members.update(m => {
+        const hasUser = m.some(member => member.user_id === userId);
+        if (!hasUser) return m;
+        
+        return m.map(member => 
+            member.user_id === userId 
+                ? { ...member, status }
+                : member
+        );
+    });
     
-    // Also update in DM conversations if present
-    dmConversations.update(convs => convs.map(conv =>
-        conv.other_user.id === userId
-            ? { ...conv, other_user: { ...conv.other_user, status } }
-            : conv
-    ));
+    // Update in DM conversations if present - create new array to trigger reactivity
+    dmConversations.update(convs => {
+        const hasUser = convs.some(conv => conv.other_user.id === userId);
+        if (!hasUser) return convs;
+        
+        return convs.map(conv =>
+            conv.other_user.id === userId
+                ? { ...conv, other_user: { ...conv.other_user, status } }
+                : conv
+        );
+    });
 }
 
 // ── Logout ───────────────────────────────────────────────────────────

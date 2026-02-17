@@ -1,0 +1,43 @@
+# Commit Messages for Reactivity Fixes
+
+## Option 1: Single Commit
+```
+fix: resolve UI reactivity issues with real-time updates
+
+- Update dmConversations store when DM messages arrive via WebSocket
+- Improve updateUserStatus to ensure proper Svelte reactivity
+- Add missing dmConversations import to ws.ts
+- Fixes status indicators, message previews, and other UI elements not updating without refresh
+```
+
+## Option 2: Multiple Commits
+
+### Commit 1:
+```
+fix(websocket): update DM conversation list on message events
+
+Update dmConversations store when dm_message_created, dm_message_updated,
+and dm_message_deleted events arrive. This ensures message previews in the
+conversation list update in real-time without requiring page refresh.
+```
+
+### Commit 2:
+```
+fix(stores): improve user status update reactivity
+
+Add early-return checks in updateUserStatus to avoid unnecessary updates
+and ensure new array/object references are created for proper Svelte
+reactivity. Fixes status indicators not updating in member lists and DM
+conversations.
+```
+
+### Commit 3:
+```
+docs: add reactivity fixes documentation
+
+Document the root cause of UI update issues and explain Svelte reactivity
+patterns for future maintainers.
+```
+
+## Recommended: Single Commit
+Use Option 1 for a clean, atomic commit that addresses the overall issue.

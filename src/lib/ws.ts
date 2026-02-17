@@ -1,5 +1,5 @@
 import { get } from "svelte/store";
-import { authToken, currentUser, currentChannelId, currentServerId, messages, pinnedMessages, voiceStates, voiceChannelId, addTypingUser, members, dmMessages, currentDmConversationId, updateUserStatus } from "./stores";
+import { authToken, currentUser, currentChannelId, currentServerId, messages, pinnedMessages, voiceStates, voiceChannelId, addTypingUser, members, dmMessages, currentDmConversationId, dmConversations, updateUserStatus } from "./stores";
 import type { WsEnvelope, Message, VoiceState, DmMessage, UserStatus } from "./types";
 import { getServerUrl } from "./api";
 
@@ -118,12 +118,15 @@ function handleMessage(env: WsEnvelope) {
         case "message_created": {
             const msg: Message = env.payload.message;
             const currentCh = get(currentChannelId);
+            
+            // Always update messages if in the same channel
             if (msg.channel_id === currentCh) {
                 messages.update((msgs) => {
                     if (msgs.some((m) => m.id === msg.id)) return msgs;
                     return [...msgs, msg];
                 });
             }
+            
             // Desktop notification if window not focused and not own message
             const me = get(currentUser);
             if (me && msg.author_id !== me.id && !document.hasFocus()) {
@@ -220,12 +223,28 @@ function handleMessage(env: WsEnvelope) {
         case "dm_message_created": {
             const msg: DmMessage = env.payload.message;
             const currentConv = get(currentDmConversationId);
+            
+            // Update messages if viewing this conversation
             if (msg.conversation_id === currentConv) {
                 dmMessages.update((msgs) => {
                     if (msgs.some((m) => m.id === msg.id)) return msgs;
                     return [...msgs, msg];
                 });
             }
+            
+            // Update conversation list with latest message
+            dmConversations.update((convs) => {
+                return convs.map((conv) => {
+                    if (conv.id === msg.conversation_id) {
+                        return {
+                            ...conv,
+                            last_message: msg,
+                        };
+                    }
+                    return conv;
+                });
+            });
+            
             // Desktop notification if window not focused and not own message
             const me = get(currentUser);
             if (me && msg.author_id !== me.id && !document.hasFocus()) {
@@ -237,6 +256,19 @@ function handleMessage(env: WsEnvelope) {
         case "dm_message_deleted": {
             const { message_id } = env.payload;
             dmMessages.update((msgs) => msgs.filter((m) => m.id !== message_id));
+            
+            // Update conversation list if this was the last message
+            dmConversations.update((convs) => {
+                return convs.map((conv) => {
+                    if (conv.last_message?.id === message_id) {
+                        return {
+                            ...conv,
+                            last_message: null,
+                        };
+                    }
+                    return conv;
+                });
+            });
             break;
         }
 
@@ -253,6 +285,23 @@ function handleMessage(env: WsEnvelope) {
                         : m,
                 ),
             );
+            
+            // Update conversation list if this is the last message
+            dmConversations.update((convs) => {
+                return convs.map((conv) => {
+                    if (conv.last_message?.id === message_id) {
+                        return {
+                            ...conv,
+                            last_message: {
+                                ...conv.last_message,
+                                content: content ?? conv.last_message.content,
+                                edited_at: edited_at ?? conv.last_message.edited_at,
+                            },
+                        };
+                    }
+                    return conv;
+                });
+            });
             break;
         }
 
