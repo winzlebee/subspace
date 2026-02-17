@@ -3,11 +3,55 @@
         connectionDiagnostics, 
         voiceConnectionStatus,
         enableDiagnostics, 
-        disableDiagnostics 
+        disableDiagnostics,
+        testTurnConnection,
+        testTurnConnectionRemote,
+        turnTestResult
     } from "$lib/webrtc";
     import { onMount, onDestroy } from "svelte";
 
     let diagnosticsEnabled = $state(false);
+    let isTesting = $state(false);
+    let testMode = $state<"local" | "local-relay" | "remote">("local");
+
+    async function handleTestTurn() {
+        isTesting = true;
+        try {
+            if (testMode === "remote") {
+                await testTurnConnectionRemote();
+            } else {
+                const forceRelay = testMode === "local-relay";
+                await testTurnConnection(forceRelay);
+            }
+        } finally {
+            isTesting = false;
+        }
+    }
+
+    function getTestStatusColor(status: string): string {
+        switch (status) {
+            case "success":
+                return "alert-success";
+            case "failed":
+            case "error":
+                return "alert-error";
+            case "testing":
+                return "alert-info";
+            default:
+                return "alert-info";
+        }
+    }
+
+    function getConnectionTypeColor(type: string): string {
+        switch (type) {
+            case "relay":
+                return "badge-warning";
+            case "direct":
+                return "badge-success";
+            default:
+                return "badge-ghost";
+        }
+    }
 
     onMount(() => {
         // Auto-enable diagnostics when component mounts
@@ -42,17 +86,6 @@
         return Math.round(rtt * 1000) + " ms";
     }
 
-    function getConnectionTypeColor(type: "direct" | "relay" | "unknown"): string {
-        switch (type) {
-            case "direct":
-                return "badge-success";
-            case "relay":
-                return "badge-warning";
-            default:
-                return "badge-ghost";
-        }
-    }
-
     function getConnectionStateColor(state: RTCPeerConnectionState): string {
         switch (state) {
             case "connected":
@@ -73,6 +106,137 @@
         <h3 class="text-lg font-semibold">Voice Connection Diagnostics</h3>
         <div class="badge badge-sm badge-info">Live</div>
     </div>
+
+    <!-- TURN Server Test Section -->
+    <div class="card bg-base-200 shadow-sm">
+        <div class="card-body p-4 space-y-3">
+            <h4 class="font-semibold text-base">TURN Server Test</h4>
+            
+            <p class="text-xs text-base-content/70">
+                Test TURN server connectivity without joining voice chat. This helps diagnose network/firewall issues.
+            </p>
+
+            <!-- Test Mode Selection -->
+            <div class="space-y-2">
+                <div class="form-control">
+                    <label class="label cursor-pointer justify-start gap-3 py-2">
+                        <input 
+                            type="radio" 
+                            name="test-mode" 
+                            value="local"
+                            bind:group={testMode}
+                            class="radio radio-sm radio-primary"
+                            disabled={isTesting}
+                        />
+                        <div class="flex-1">
+                            <span class="label-text font-medium">Quick Test (Local)</span>
+                            <p class="text-xs text-base-content/60 mt-0.5">
+                                Fast local test - checks if TURN candidates are generated
+                            </p>
+                        </div>
+                    </label>
+                </div>
+
+                <div class="form-control">
+                    <label class="label cursor-pointer justify-start gap-3 py-2">
+                        <input 
+                            type="radio" 
+                            name="test-mode" 
+                            value="local-relay"
+                            bind:group={testMode}
+                            class="radio radio-sm radio-warning"
+                            disabled={isTesting}
+                        />
+                        <div class="flex-1">
+                            <span class="label-text font-medium">Strict Test (Force TURN)</span>
+                            <p class="text-xs text-base-content/60 mt-0.5">
+                                Blocks P2P to verify TURN relay actually works
+                            </p>
+                        </div>
+                    </label>
+                </div>
+
+                <div class="form-control">
+                    <label class="label cursor-pointer justify-start gap-3 py-2">
+                        <input 
+                            type="radio" 
+                            name="test-mode" 
+                            value="remote"
+                            bind:group={testMode}
+                            class="radio radio-sm radio-secondary"
+                            disabled={isTesting}
+                        />
+                        <div class="flex-1">
+                            <span class="label-text font-medium">Remote Test (Real NAT)</span>
+                            <p class="text-xs text-base-content/60 mt-0.5">
+                                Tests with actual remote peer for realistic results
+                            </p>
+                        </div>
+                    </label>
+                </div>
+            </div>
+
+            <!-- Test Button -->
+            <button 
+                class="btn btn-primary btn-block"
+                onclick={handleTestTurn}
+                disabled={isTesting}
+            >
+                {#if isTesting}
+                    <span class="loading loading-spinner loading-sm"></span>
+                    Testing...
+                {:else}
+                    Run Test
+                {/if}
+            </button>
+
+            {#if $turnTestResult}
+                <div class="alert {getTestStatusColor($turnTestResult.status)}">
+                    <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        class="stroke-current shrink-0 w-6 h-6"
+                    >
+                        <path
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            stroke-width="2"
+                            d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                        ></path>
+                    </svg>
+                    <div class="flex-1">
+                        <div class="font-semibold">{$turnTestResult.message}</div>
+                        {#if $turnTestResult.details}
+                            <div class="text-xs mt-2 space-y-1">
+                                {#if $turnTestResult.details.turnServerUrl}
+                                    <div><strong>Server:</strong> {$turnTestResult.details.turnServerUrl}</div>
+                                {/if}
+                                {#if $turnTestResult.details.connectionType}
+                                    <div><strong>Connection Type:</strong> 
+                                        <span class="badge badge-xs {getConnectionTypeColor($turnTestResult.details.connectionType)}">
+                                            {$turnTestResult.details.connectionType === "relay" ? "Relay (TURN)" : $turnTestResult.details.connectionType === "direct" ? "Direct (P2P)" : "Unknown"}
+                                        </span>
+                                    </div>
+                                {/if}
+                                {#if $turnTestResult.details.testDuration}
+                                    <div><strong>Duration:</strong> {$turnTestResult.details.testDuration}ms</div>
+                                {/if}
+                                {#if $turnTestResult.details.localCandidate}
+                                    <div><strong>Local:</strong> <span class="font-mono text-xs">{$turnTestResult.details.localCandidate}</span></div>
+                                {/if}
+                                {#if $turnTestResult.details.remoteCandidate}
+                                    <div><strong>Remote:</strong> <span class="font-mono text-xs">{$turnTestResult.details.remoteCandidate}</span></div>
+                                {/if}
+                            </div>
+                        {/if}
+                    </div>
+                </div>
+            {/if}
+        </div>
+    </div>
+
+    <div class="divider my-2"></div>
 
     <!-- Overall Status -->
     <div class="alert {$voiceConnectionStatus.isAlone ? 'alert-info' : $voiceConnectionStatus.turnServerStatus === 'failed' ? 'alert-error' : $voiceConnectionStatus.activeConnections > 0 ? 'alert-success' : 'alert-warning'}">

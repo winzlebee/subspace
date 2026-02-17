@@ -40,6 +40,7 @@ async fn main() {
 
     let app = Router::new()
         .nest("/api", routes::api_routes(state.clone()))
+        .merge(routes::turn_test::routes())
         .route("/ws", axum::routing::get(ws::ws_handler))
         .nest_service("/uploads", tower_http::services::ServeDir::new(&state.upload_dir))
         .layer(

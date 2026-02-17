@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-02-17
+
+### Added
+
+- TURN Server Testing System
+  - Three test modes: Quick Test (local), Strict Test (force TURN relay), and Remote Test (real NAT traversal)
+  - Tests use same TURN configuration as actual voice connections
+  - Detailed diagnostics showing connection type, candidates, and timing
+  - WebRTC availability check for Tauri compatibility
+  - New `/api/turn-test` WebSocket endpoint for remote peer testing
+  - Comprehensive error messages and troubleshooting guidance
+
 
 ## [0.9.1] - 2026-02-16
 

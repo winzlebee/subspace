@@ -4,6 +4,7 @@ pub mod messages;
 pub mod servers;
 pub mod users;
 pub mod turn;
+pub mod turn_test;
 pub mod version;
 
 use std::sync::Arc;

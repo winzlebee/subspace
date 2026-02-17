@@ -955,3 +955,575 @@ export function enableDiagnostics() {
 export function disableDiagnostics() {
     stopDiagnosticsCollection();
 }
+
+export interface TurnTestResult {
+    status: "testing" | "success" | "failed" | "error";
+    message: string;
+    details?: {
+        turnServerUrl?: string;
+        localCandidate?: string;
+        remoteCandidate?: string;
+        connectionType?: "direct" | "relay" | "unknown";
+        iceConnectionState?: RTCIceConnectionState;
+        connectionState?: RTCPeerConnectionState;
+        testDuration?: number;
+        error?: string;
+        p2pCapable?: boolean;
+        relayCapable?: boolean;
+    };
+}
+
+export const turnTestResult = writable<TurnTestResult | null>(null);
+
+/**
+ * Tests TURN server connectivity without joining a voice channel.
+ * Creates two local peer connections to simulate a real connection and
+ * verifies both P2P and TURN relay capabilities.
+ * 
+ * @param forceRelay - If true, forces relay-only mode to strictly test TURN server
+ */
+export async function testTurnConnection(forceRelay: boolean = false): Promise<TurnTestResult> {
+    turnTestResult.set({
+        status: "testing",
+        message: "Testing TURN server connection...",
+    });
+
+    // Check if WebRTC is available
+    if (typeof RTCPeerConnection === 'undefined') {
+        const result: TurnTestResult = {
+            status: "error",
+            message: "WebRTC is not available in this environment. Please ensure you're running in a browser or Tauri with WebRTC support.",
+            details: {
+                error: "RTCPeerConnection is not defined"
+            }
+        };
+        turnTestResult.set(result);
+        return result;
+    }
+
+    const startTime = Date.now();
+    let testPc1: RTCPeerConnection | null = null;
+    let testPc2: RTCPeerConnection | null = null;
+
+    try {
+        // Get ICE servers configuration
+        const iceConfig = await getIceServers();
+        
+        if (!iceConfig.iceServers || iceConfig.iceServers.length === 0) {
+            const result: TurnTestResult = {
+                status: "error",
+                message: "No ICE servers configured",
+                details: {
+                    error: "ICE server configuration is empty"
+                }
+            };
+            turnTestResult.set(result);
+            return result;
+        }
+
+        const turnServer = iceConfig.iceServers[0];
+        const turnUrls = Array.isArray(turnServer.urls) ? turnServer.urls : [turnServer.urls];
+        const turnUrl = turnUrls.find(url => url.startsWith("turn:")) || turnUrls[0];
+
+        console.log("[TURN Test] Testing connection to:", turnUrl);
+        console.log("[TURN Test] ICE configuration:", iceConfig);
+        console.log("[TURN Test] Force relay mode:", forceRelay);
+
+        // Optionally force relay-only mode for strict TURN testing
+        const config: RTCConfiguration = forceRelay 
+            ? { ...iceConfig, iceTransportPolicy: "relay" }
+            : iceConfig;
+
+        // Create two peer connections to test connectivity
+        // This simulates a real peer-to-peer connection locally
+        testPc1 = new RTCPeerConnection(config);
+        testPc2 = new RTCPeerConnection(config);
+
+        // Track ICE candidates and connection state
+        let pc1LocalCandidate: string | undefined = undefined;
+        let pc1RemoteCandidate: string | undefined = undefined;
+        let connectionType: "direct" | "relay" | "unknown" = "unknown";
+        let iceConnectionState: RTCIceConnectionState = "new";
+        let connectionState: RTCPeerConnectionState = "new";
+        let hasRelayCandidates = false;
+        let hasHostCandidates = false;
+
+        // Track all ICE candidates to determine capabilities
+        const allCandidates: RTCIceCandidate[] = [];
+
+        // Create a data channel to trigger ICE gathering
+        const dataChannel = testPc1.createDataChannel("test");
+        
+        // Monitor data channel for actual connectivity
+        let dataChannelOpen = false;
+        dataChannel.onopen = () => {
+            dataChannelOpen = true;
+            console.log("[TURN Test] Data channel opened");
+        };
+
+        // Set up promise to wait for connection
+        const connectionPromise = new Promise<void>((resolve, reject) => {
+            const timeout = setTimeout(() => {
+                reject(new Error("Connection timeout after 15 seconds"));
+            }, 15000);
+
+            testPc1!.oniceconnectionstatechange = () => {
+                iceConnectionState = testPc1!.iceConnectionState;
+                console.log("[TURN Test] PC1 ICE state:", iceConnectionState);
+                
+                if (iceConnectionState === "connected" || iceConnectionState === "completed") {
+                    clearTimeout(timeout);
+                    resolve();
+                } else if (iceConnectionState === "failed") {
+                    clearTimeout(timeout);
+                    reject(new Error("ICE connection failed"));
+                }
+            };
+
+            testPc1!.onconnectionstatechange = () => {
+                connectionState = testPc1!.connectionState;
+                console.log("[TURN Test] PC1 connection state:", connectionState);
+                
+                if (connectionState === "failed") {
+                    clearTimeout(timeout);
+                    reject(new Error("Peer connection failed"));
+                }
+            };
+
+            testPc2!.oniceconnectionstatechange = () => {
+                console.log("[TURN Test] PC2 ICE state:", testPc2!.iceConnectionState);
+            };
+        });
+
+        // Exchange ICE candidates
+        testPc1.onicecandidate = (event) => {
+            if (event.candidate) {
+                console.log("[TURN Test] PC1 candidate:", event.candidate.type, event.candidate.candidate);
+                allCandidates.push(event.candidate);
+                
+                // Check candidate types
+                if (event.candidate.type === "relay") {
+                    hasRelayCandidates = true;
+                }
+                if (event.candidate.type === "host") {
+                    hasHostCandidates = true;
+                }
+                
+                if (testPc2) {
+                    testPc2.addIceCandidate(event.candidate).catch(console.error);
+                }
+            }
+        };
+
+        testPc2.onicecandidate = (event) => {
+            if (event.candidate) {
+                console.log("[TURN Test] PC2 candidate:", event.candidate.type, event.candidate.candidate);
+                if (testPc1) {
+                    testPc1.addIceCandidate(event.candidate).catch(console.error);
+                }
+            }
+        };
+
+        // Create and exchange offers/answers
+        const offer = await testPc1.createOffer();
+        await testPc1.setLocalDescription(offer);
+        await testPc2.setRemoteDescription(offer);
+
+        const answer = await testPc2.createAnswer();
+        await testPc2.setLocalDescription(answer);
+        await testPc1.setRemoteDescription(answer);
+
+        // Wait for connection to establish
+        await connectionPromise;
+
+        // Give it a moment to stabilize
+        await new Promise(resolve => setTimeout(resolve, 500));
+
+        // Analyze the connection to determine if TURN was used
+        const stats = await testPc1.getStats();
+        stats.forEach((report) => {
+            if (report.type === "candidate-pair" && report.state === "succeeded") {
+                const localCandidateId = report.localCandidateId;
+                const remoteCandidateId = report.remoteCandidateId;
+
+                stats.forEach((r) => {
+                    if (r.id === localCandidateId && r.type === "local-candidate") {
+                        pc1LocalCandidate = `${r.candidateType} (${r.protocol})`;
+                        if (r.address) pc1LocalCandidate += ` ${r.address}:${r.port}`;
+                    }
+                    if (r.id === remoteCandidateId && r.type === "remote-candidate") {
+                        pc1RemoteCandidate = `${r.candidateType} (${r.protocol})`;
+                        if (r.address) pc1RemoteCandidate += ` ${r.address}:${r.port}`;
+                    }
+                });
+
+                if (pc1LocalCandidate?.includes("relay") || pc1RemoteCandidate?.includes("relay")) {
+                    connectionType = "relay";
+                } else if (pc1LocalCandidate && pc1RemoteCandidate) {
+                    connectionType = "direct";
+                }
+            }
+        });
+
+        const testDuration = Date.now() - startTime;
+
+        let message = "";
+        let status: "success" | "failed" = "success";
+
+        // Determine capabilities and generate appropriate message
+        const p2pCapable = hasHostCandidates;
+        const relayCapable = hasRelayCandidates;
+
+        if ((connectionType as string) === "relay") {
+            message = `✓ TURN server working! Connected via relay in ${testDuration}ms. Network requires TURN for voice chat.`;
+        } else if ((connectionType as string) === "direct") {
+            if (relayCapable) {
+                message = `✓ Connection successful (P2P) in ${testDuration}ms. TURN server available and working as fallback.`;
+            } else {
+                message = `⚠ Connected via P2P in ${testDuration}ms, but no TURN relay candidates found. TURN server may not be configured correctly.`;
+                status = "failed";
+            }
+        } else {
+            message = `⚠ Connection established in ${testDuration}ms, but connection type could not be determined.`;
+        }
+
+        const result: TurnTestResult = {
+            status,
+            message,
+            details: {
+                turnServerUrl: turnUrl,
+                localCandidate: pc1LocalCandidate,
+                remoteCandidate: pc1RemoteCandidate,
+                connectionType,
+                iceConnectionState,
+                connectionState,
+                testDuration,
+                p2pCapable,
+                relayCapable,
+            }
+        };
+
+        turnTestResult.set(result);
+        return result;
+
+    } catch (error) {
+        const testDuration = Date.now() - startTime;
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        
+        console.error("[TURN Test] Failed:", error);
+
+        let detailedMessage = `✗ TURN server test failed: ${errorMessage}`;
+        
+        // Provide more specific guidance based on error
+        if (errorMessage.includes("timeout")) {
+            detailedMessage += ". This usually indicates firewall/network issues or TURN server is not running.";
+        } else if (errorMessage.includes("ICE connection failed")) {
+            detailedMessage += ". Unable to establish connection - check TURN server configuration and firewall rules.";
+        }
+
+        const result: TurnTestResult = {
+            status: "failed",
+            message: detailedMessage,
+            details: {
+                error: errorMessage,
+                testDuration,
+            }
+        };
+
+        turnTestResult.set(result);
+        return result;
+
+    } finally {
+        // Clean up test peer connections
+        if (testPc1) {
+            testPc1.close();
+        }
+        if (testPc2) {
+            testPc2.close();
+        }
+    }
+}
+
+/**
+ * Tests TURN server connectivity using a remote server endpoint.
+ * This provides more realistic testing by connecting to an actual remote peer.
+ */
+export async function testTurnConnectionRemote(): Promise<TurnTestResult> {
+    turnTestResult.set({
+        status: "testing",
+        message: "Testing TURN server with remote peer...",
+    });
+
+    // Check if WebRTC is available
+    if (typeof RTCPeerConnection === 'undefined') {
+        const result: TurnTestResult = {
+            status: "error",
+            message: "WebRTC is not available in this environment.",
+            details: {
+                error: "RTCPeerConnection is not defined"
+            }
+        };
+        turnTestResult.set(result);
+        return result;
+    }
+
+    const startTime = Date.now();
+    let testPc: RTCPeerConnection | null = null;
+    let ws: WebSocket | null = null;
+
+    try {
+        // Get ICE servers configuration
+        const iceConfig = await getIceServers();
+        
+        if (!iceConfig.iceServers || iceConfig.iceServers.length === 0) {
+            const result: TurnTestResult = {
+                status: "error",
+                message: "No ICE servers configured",
+                details: {
+                    error: "ICE server configuration is empty"
+                }
+            };
+            turnTestResult.set(result);
+            return result;
+        }
+
+        const turnServer = iceConfig.iceServers[0];
+        const turnUrls = Array.isArray(turnServer.urls) ? turnServer.urls : [turnServer.urls];
+        const turnUrl = turnUrls.find(url => url.startsWith("turn:")) || turnUrls[0];
+
+        console.log("[TURN Remote Test] Testing connection to:", turnUrl);
+
+        // Connect to server's test endpoint
+        const serverUrl = getServerUrl();
+        const wsUrl = serverUrl.replace(/^http/, 'ws') + '/api/turn-test';
+        
+        console.log("[TURN Remote Test] Connecting to test endpoint:", wsUrl);
+
+        // Create WebSocket connection
+        ws = new WebSocket(wsUrl);
+
+        // Wait for WebSocket to open
+        await new Promise<void>((resolve, reject) => {
+            const timeout = setTimeout(() => {
+                reject(new Error("WebSocket connection timeout"));
+            }, 5000);
+
+            ws!.onopen = () => {
+                clearTimeout(timeout);
+                console.log("[TURN Remote Test] WebSocket connected");
+                resolve();
+            };
+
+            ws!.onerror = (error) => {
+                clearTimeout(timeout);
+                reject(new Error("WebSocket connection failed"));
+            };
+        });
+
+        // Create peer connection
+        testPc = new RTCPeerConnection(iceConfig);
+
+        let hasRelayCandidates = false;
+        let hasHostCandidates = false;
+        let pc1LocalCandidate: string | undefined = undefined;
+        let pc1RemoteCandidate: string | undefined = undefined;
+        let connectionType: "direct" | "relay" | "unknown" = "unknown";
+        let iceConnectionState: RTCIceConnectionState = "new";
+        let connectionState: RTCPeerConnectionState = "new";
+
+        // Create data channel to trigger ICE gathering
+        const dataChannel = testPc.createDataChannel("test");
+
+        // Set up signaling through WebSocket
+        testPc.onicecandidate = (event) => {
+            if (event.candidate) {
+                console.log("[TURN Remote Test] Local candidate:", event.candidate.type);
+                
+                if (event.candidate.type === "relay") {
+                    hasRelayCandidates = true;
+                }
+                if (event.candidate.type === "host") {
+                    hasHostCandidates = true;
+                }
+
+                // Send candidate to remote peer via WebSocket
+                ws!.send(JSON.stringify({
+                    type: "ice",
+                    candidate: event.candidate
+                }));
+            }
+        };
+
+        // Handle messages from remote peer
+        const connectionPromise = new Promise<void>((resolve, reject) => {
+            const timeout = setTimeout(() => {
+                reject(new Error("Connection timeout after 20 seconds"));
+            }, 20000);
+
+            ws!.onmessage = async (event) => {
+                try {
+                    const data = JSON.parse(event.data);
+                    
+                    if (data.type === "answer") {
+                        console.log("[TURN Remote Test] Received answer from remote peer");
+                        await testPc!.setRemoteDescription(data.sdp);
+                    } else if (data.type === "ice") {
+                        console.log("[TURN Remote Test] Received ICE candidate from remote peer");
+                        if (data.candidate) {
+                            await testPc!.addIceCandidate(data.candidate);
+                        }
+                    }
+                } catch (e) {
+                    console.error("[TURN Remote Test] Error handling message:", e);
+                }
+            };
+
+            testPc!.oniceconnectionstatechange = () => {
+                iceConnectionState = testPc!.iceConnectionState;
+                console.log("[TURN Remote Test] ICE state:", iceConnectionState);
+                
+                if (iceConnectionState === "connected" || iceConnectionState === "completed") {
+                    clearTimeout(timeout);
+                    resolve();
+                } else if (iceConnectionState === "failed") {
+                    clearTimeout(timeout);
+                    reject(new Error("ICE connection failed"));
+                }
+            };
+
+            testPc!.onconnectionstatechange = () => {
+                connectionState = testPc!.connectionState;
+                console.log("[TURN Remote Test] Connection state:", connectionState);
+                
+                if (connectionState === "failed") {
+                    clearTimeout(timeout);
+                    reject(new Error("Peer connection failed"));
+                }
+            };
+
+            dataChannel.onopen = () => {
+                console.log("[TURN Remote Test] Data channel opened");
+            };
+        });
+
+        // Create and send offer
+        const offer = await testPc.createOffer();
+        await testPc.setLocalDescription(offer);
+        
+        ws.send(JSON.stringify({
+            type: "offer",
+            sdp: offer
+        }));
+
+        console.log("[TURN Remote Test] Sent offer to remote peer");
+
+        // Wait for connection to establish
+        await connectionPromise;
+
+        // Give it a moment to stabilize
+        await new Promise(resolve => setTimeout(resolve, 500));
+
+        // Analyze the connection
+        const stats = await testPc.getStats();
+        stats.forEach((report) => {
+            if (report.type === "candidate-pair" && report.state === "succeeded") {
+                const localCandidateId = report.localCandidateId;
+                const remoteCandidateId = report.remoteCandidateId;
+
+                stats.forEach((r) => {
+                    if (r.id === localCandidateId && r.type === "local-candidate") {
+                        pc1LocalCandidate = `${r.candidateType} (${r.protocol})`;
+                        if (r.address) pc1LocalCandidate += ` ${r.address}:${r.port}`;
+                    }
+                    if (r.id === remoteCandidateId && r.type === "remote-candidate") {
+                        pc1RemoteCandidate = `${r.candidateType} (${r.protocol})`;
+                        if (r.address) pc1RemoteCandidate += ` ${r.address}:${r.port}`;
+                    }
+                });
+
+                if (pc1LocalCandidate?.includes("relay") || pc1RemoteCandidate?.includes("relay")) {
+                    connectionType = "relay";
+                } else if (pc1LocalCandidate && pc1RemoteCandidate) {
+                    connectionType = "direct";
+                }
+            }
+        });
+
+        const testDuration = Date.now() - startTime;
+
+        let message = "";
+        let status: "success" | "failed" = "success";
+
+        const p2pCapable = hasHostCandidates;
+        const relayCapable = hasRelayCandidates;
+
+        if ((connectionType as string) === "relay") {
+            message = `✓ TURN server working with remote peer! Connected via relay in ${testDuration}ms. This confirms TURN is properly configured.`;
+        } else if ((connectionType as string) === "direct") {
+            if (relayCapable) {
+                message = `✓ Connected to remote peer (P2P) in ${testDuration}ms. TURN server available and working as fallback.`;
+            } else {
+                message = `⚠ Connected via P2P in ${testDuration}ms, but no TURN relay candidates found. TURN server may not be configured correctly.`;
+                status = "failed";
+            }
+        } else {
+            message = `⚠ Connection established in ${testDuration}ms, but connection type could not be determined.`;
+        }
+
+        const result: TurnTestResult = {
+            status,
+            message,
+            details: {
+                turnServerUrl: turnUrl,
+                localCandidate: pc1LocalCandidate,
+                remoteCandidate: pc1RemoteCandidate,
+                connectionType,
+                iceConnectionState,
+                connectionState,
+                testDuration,
+                p2pCapable,
+                relayCapable,
+            }
+        };
+
+        turnTestResult.set(result);
+        return result;
+
+    } catch (error) {
+        const testDuration = Date.now() - startTime;
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        
+        console.error("[TURN Remote Test] Failed:", error);
+
+        let detailedMessage = `✗ Remote TURN test failed: ${errorMessage}`;
+        
+        if (errorMessage.includes("WebSocket")) {
+            detailedMessage += ". Could not connect to test endpoint - ensure server is running.";
+        } else if (errorMessage.includes("timeout")) {
+            detailedMessage += ". Connection timeout - check TURN server and firewall configuration.";
+        } else if (errorMessage.includes("ICE connection failed")) {
+            detailedMessage += ". Unable to establish connection - check TURN server configuration.";
+        }
+
+        const result: TurnTestResult = {
+            status: "failed",
+            message: detailedMessage,
+            details: {
+                error: errorMessage,
+                testDuration,
+            }
+        };
+
+        turnTestResult.set(result);
+        return result;
+
+    } finally {
+        // Clean up
+        if (testPc) {
+            testPc.close();
+        }
+        if (ws && ws.readyState === WebSocket.OPEN) {
+            ws.close();
+        }
+    }
+}
